@@ -62,9 +62,9 @@ A durable, version-controlled record of **the order in which the platform is bui
 - ✅ **FIXED (commit 41f2db9): removed the shadowing `src/test/resources/application.yml`.**
   order-service ITs now run against the real main `application.yml` (dynamic properties
   override only container-specifics), instead of a stub that silently disabled it.
-- **Parent pom pins `spring-kafka` 3.2.4** (built for Spring 6); each service overrides to
-  4.1.1 locally + adds `spring-boot-starter-kafka`. Unpin the parent so services don't each
-  need the override. (Still open.)
+- ✅ **FIXED (commit 81d7a21): unpinned `spring-kafka` in the parent pom.** The Boot 4.1.1
+  BOM's managed version (4.1.1) now applies platform-wide; per-service 4.1.1 overrides
+  removed. (Was: parent pinned 3.2.4 built for Spring 6, breaking @KafkaListener on Boot 4.)
 - **Blocking retries** (DefaultErrorHandler) implemented now; ADR-0014 non-blocking retry
   topics (`-retry-1s/-10s/-1m`) recorded as a follow-up.
 - **REQUIRES_RECONCILIATION deferred to payment-service** (needs a `PaymentCaptureUnknown`
