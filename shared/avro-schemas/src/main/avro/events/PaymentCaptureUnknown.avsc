@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "PaymentCaptureUnknown",
+  "namespace": "com.sajidriaz.orderplatform.events.payment",
+  "doc": "Fact: the outcome of a capture attempt is UNKNOWN — the provider may or may not have captured the funds (lost response/timeout). NOT a failure and NOT a success: the operation stays UNKNOWN until reconciliation positively establishes the truth using the same providerIdempotencyKey, at which point PaymentCaptured or PaymentCaptureFailed follows (ADR-0016 §2, scenario S-17). Additive: no existing schema is changed.",
+  "fields": [
+    { "name": "orderId",            "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "paymentIntentId",    "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "paymentAttemptId",   "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "paymentOperationId", "type": { "type": "string", "logicalType": "uuid" }, "doc": "The capture operation whose outcome is unknown; the key reconciliation resolves on." },
+    { "name": "amount",             "type": "com.sajidriaz.orderplatform.common.Money" },
+    { "name": "providerReference",  "type": ["null", "string"], "default": null, "doc": "Provider reference if one was obtained before the response was lost; null when even that is unknown." },
+    { "name": "detectedAt",         "type": { "type": "long", "logicalType": "timestamp-millis" } }
+  ]
+}

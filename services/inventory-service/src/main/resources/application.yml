@@ -1,0 +1,132 @@
+server:
+  port: 8082
+  servlet:
+    context-path: /
+  tomcat:
+    # The connector bounds intake so overload is refused fast rather than queued forever
+    # (ADR-0015 §1). Virtual threads make the thread count a non-limiter; these still cap it.
+    max-connections: 2000
+    accept-count: 200
+
+spring:
+  application:
+    name: inventory-service
+
+  threads:
+    # Each request on a virtual thread (ADR-0015 §1). The throughput ceiling then becomes the
+    # DB pool below, deliberately, rather than an invisible worker-pool size.
+    virtual:
+      enabled: true
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/orderdb
+    # ADR-0007 wants a DB role per service. Provisioning that role is an infrastructure concern
+    # (deploy/local/compose.yaml currently creates only `appuser`), so the username is a property
+    # with a dev default: pointing this service at its own role later is configuration, not code.
+    username: ${POSTGRES_INVENTORY_USER:appuser}
+    password: ${POSTGRES_APP_PASSWORD:changeme-dev-only}
+    hikari:
+      # Scopes every connection's search_path to this service's schema, so the native queries in
+      # the repositories resolve without qualifying each table name.
+      schema: inventory
+      # The pool is the intended throughput limiter (ADR-0015 §2): small on purpose. Connections
+      # are precious; hundreds of them would just move the queue into the database.
+      maximum-pool-size: 10
+      connection-timeout: 3000
+      max-lifetime: 1200000
+
+  jpa:
+    hibernate:
+      # Flyway owns the schema. `validate` catches drift between entities and migrations at
+      # startup instead of at the first query.
+      ddl-auto: validate
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: inventory
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # Schema per service (ADR-0007). Flyway creates the schema and keeps its history table there.
+    schemas: inventory
+    default-schema: inventory
+    create-schemas: true
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      # Envelopes (and the Avro payloads inside them) are serialized to bytes in-process; Kafka
+      # transports opaque byte[] only. No Confluent schema-registry serializer (ADR-0010).
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.ByteArraySerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+    consumer:
+      group-id: inventory-service
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
+      enable-auto-commit: false
+      auto-offset-reset: earliest
+    listener:
+      # Manual ack: the offset is committed only after the stock change + processed_message dedup
+      # row commit in the same DB transaction (ADR-0005, ADR-0014).
+      ack-mode: manual
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+order-platform:
+  outbox:
+    relay:
+      # Outbox relay poll interval (ADR-0004). SELECT ... FOR UPDATE SKIP LOCKED lets multiple
+      # replicas drain the outbox concurrently without double-publishing.
+      fixed-delay-ms: 500
+      batch-size: 50
+      # After this many failed publishes a row is marked FAILED instead of being retried forever
+      # in silence. At ~500ms per poll this is minutes of broker outage, not seconds.
+      max-attempts: 50
+
+inventory:
+  reservation:
+    # The TTL normally arrives on the ReserveStock command (the orchestrator owns it). These
+    # bounds apply when it is absent or implausible — an unbounded hold is stock nobody can sell.
+    default-ttl-seconds: 900
+    max-ttl-seconds: 3600
+    expiry-sweep:
+      fixed-delay-ms: 1000
+      batch-size: 50
+  cache:
+    redis:
+      # Display-only availability cache (ADR-0007). Off by default so the service runs with no
+      # Redis present; the in-process implementation is used instead. Either way the cache NEVER
+      # backs a reservation decision — that is always the atomic conditional UPDATE (ADR-0015).
+      enabled: ${INVENTORY_CACHE_REDIS_ENABLED:false}
+    ttl-seconds: 30
+
+logging:
+  level:
+    com.sajidriaz.orderplatform: DEBUG
+    org.springframework.kafka: INFO
+    org.apache.kafka: WARN
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      # Redis is an optional display-only cache, so its absence must not make this service look
+      # unhealthy — a readiness probe failing over a cache would take the service out of rotation
+      # for no good reason. Enable alongside inventory.cache.redis.enabled.
+      enabled: ${INVENTORY_CACHE_REDIS_ENABLED:false}

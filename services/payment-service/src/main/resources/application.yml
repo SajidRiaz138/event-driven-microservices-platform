@@ -1,0 +1,126 @@
+server:
+  port: 8081
+  servlet:
+    context-path: /
+  tomcat:
+    # The connector bounds intake so overload is refused fast rather than queued forever
+    # (ADR-0015 §1). Virtual threads make the thread count a non-limiter; these still cap it.
+    max-connections: 2000
+    accept-count: 200
+
+spring:
+  application:
+    name: payment-service
+
+  threads:
+    # Each request on a virtual thread (ADR-0015 §1). The throughput ceiling then becomes the DB
+    # pool below, deliberately, rather than an invisible worker-pool size.
+    virtual:
+      enabled: true
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/orderdb
+    # ADR-0007 wants a DB role per service. Provisioning that role is an infrastructure concern
+    # (deploy/local/compose.yaml currently creates only `appuser`), so the username is a property
+    # with a dev default: pointing this service at its own role later is configuration, not code.
+    username: ${POSTGRES_PAYMENT_USER:appuser}
+    password: ${POSTGRES_APP_PASSWORD:changeme-dev-only}
+    hikari:
+      # Scopes each connection's search_path to this service's schema. Belt and braces only: the
+      # migration, the entities and the native queries all name the schema explicitly, so nothing
+      # depends on this taking effect.
+      schema: payment
+      # The pool is the intended throughput limiter (ADR-0015 §2): small on purpose.
+      maximum-pool-size: 10
+      connection-timeout: 3000
+      max-lifetime: 1200000
+
+  jpa:
+    hibernate:
+      # Flyway owns the schema. `validate` catches drift between entities and migrations at startup
+      # rather than at the first query — and because the entities name their schema explicitly, this
+      # is a real check rather than one that passes by accident.
+      ddl-auto: validate
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # Schema per service (ADR-0007). The migration creates the schema itself as well, so placement
+    # does not depend on this binding; this keeps flyway_schema_history alongside the tables it
+    # describes rather than stranded in public.
+    schemas: payment
+    default-schema: payment
+    create-schemas: true
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      # Envelopes (and the Avro payloads inside them) are serialized to bytes in-process; Kafka
+      # transports opaque byte[] only. No Confluent schema-registry serializer (ADR-0010).
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.ByteArraySerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+    consumer:
+      group-id: payment-service
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
+      enable-auto-commit: false
+      auto-offset-reset: earliest
+    listener:
+      # Manual ack: the offset is committed only after the payment state change + processed_message
+      # dedup row commit in the same DB transaction (ADR-0005, ADR-0014). Re-applying a payment
+      # command is how systems charge twice, so this ordering is not optional.
+      ack-mode: manual
+
+order-platform:
+  outbox:
+    relay:
+      # Outbox relay poll interval (ADR-0004). SELECT ... FOR UPDATE SKIP LOCKED lets multiple
+      # replicas drain the outbox concurrently without double-publishing.
+      fixed-delay-ms: 500
+      batch-size: 50
+      # After this many failed publishes a row is marked FAILED rather than retried forever in
+      # silence. At ~500ms per poll this is minutes of broker outage, not seconds.
+      max-attempts: 50
+
+payment:
+  reconciliation:
+    # How often UNKNOWN operations are re-checked against the provider (ADR-0016 §2). No ADR pins
+    # this number; it is set short because an unresolved capture means money whose fate is unknown.
+    fixed-delay-ms: 1000
+    batch-size: 50
+    # After this many unsuccessful attempts an operation stops being polled and is escalated by an
+    # ERROR log — it stays UNKNOWN. Running out of budget is a reason to involve a human, never a
+    # licence to decide the outcome.
+    max-attempts: 20
+  provider:
+    stub:
+      # Tokens that select a provider behaviour, so the failure paths are reproducible on demand.
+      # The value flows through from the order's paymentInstrumentId.
+      decline-tokens: pi_decline
+      capture-timeout-captured-tokens: pi_capture_timeout_captured
+      capture-timeout-lost-tokens: pi_capture_timeout_lost
+      capture-timeout-unanswerable-tokens: pi_capture_timeout_unanswerable
+
+logging:
+  level:
+    com.sajidriaz.orderplatform: DEBUG
+    org.springframework.kafka: INFO
+    org.apache.kafka: WARN
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always

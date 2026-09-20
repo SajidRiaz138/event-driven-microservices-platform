@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.sajidriaz.orderplatform</groupId>
+        <artifactId>event-driven-microservices-platform</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>inventory-service</artifactId>
+    <name>Inventory Service</name>
+    <description>
+        Inventory service: saga participant. Consumes ReserveStock/ReleaseStock commands and
+        replies with inventory events. Reservation aggregate with TTL and an atomic conditional
+        reservation so oversell is structurally impossible
+        (docs/adr/0015-concurrency-and-resource-management.md), display-only Redis availability
+        cache (ADR-0007), transactional outbox (ADR-0004), idempotent consumer (ADR-0005).
+    </description>
+
+    <dependencies>
+        <!-- Shared contracts -->
+        <dependency>
+            <groupId>com.sajidriaz.orderplatform</groupId>
+            <artifactId>avro-schemas</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.sajidriaz.orderplatform</groupId>
+            <artifactId>common-lib</artifactId>
+        </dependency>
+
+        <!-- Spring Boot starters -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <!--
+          Boot 4 split Kafka support out of spring-boot-autoconfigure into its own module.
+          Depending on the bare org.springframework.kafka:spring-kafka artifact compiles and
+          even lets a KafkaTemplate work, but NO Kafka autoconfiguration is contributed: the
+          @KafkaListener infrastructure (KafkaListenerAnnotationBeanPostProcessor /
+          KafkaListenerEndpointRegistry) is never registered, so every @KafkaListener is
+          silently ignored — no consumer is created, no consumer group is ever joined, and
+          commands pile up unread while the application looks perfectly healthy. This is the
+          trap order-service hit (its saga never advanced past PENDING); the starter below is
+          what makes listeners actually exist.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-kafka</artifactId>
+        </dependency>
+        <!--
+          Version pinned explicitly to align with the Spring Boot 4.1.1 BOM. The parent pom's
+          dependencyManagement pins spring-kafka to 3.2.4, which was built against Spring
+          Framework 6.1 while this platform runs Spring Framework 7.x — and the test classpath
+          resolves spring-kafka-test 4.1.1 from the Boot BOM regardless, so without this
+          override main and test code run split major versions of the same library. An explicit
+          version on a module's own dependency declaration takes precedence over inherited
+          dependencyManagement, which keeps the fix local rather than editing the shared parent.
+          TODO: remove this override (here, in payment-service, and in order-service) once the
+          parent pom's spring-kafka 3.2.4 pin is dropped in favour of the Boot BOM's managed
+          version — a platform-wide change, deliberately out of scope for this module.
+        -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+            <version>4.1.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+        <!--
+          Spring Boot 4 split Flyway autoconfiguration out of spring-boot-autoconfigure into
+          its own module. Without this, spring.flyway.* properties are inert and no
+          FlywayMigrationInitializer bean is created — Flyway silently never runs, and since
+          ddl-auto is validate the application then fails on a missing table instead.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-flyway</artifactId>
+        </dependency>
+        <!--
+          Redis is the DISPLAY-ONLY availability cache (ADR-0007): cache-aside reads for the
+          availability endpoint, invalidated on every stock change. It must never back a
+          reservation decision — that is always the atomic conditional UPDATE in Postgres
+          (ADR-0015). The cache sits behind the AvailabilityCache interface so the service
+          runs, and is fully testable, with no Redis present: the Redis implementation is
+          activated by inventory.cache.redis.enabled=true, otherwise a bounded in-process
+          implementation is used.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
+        <!-- Database -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Observability -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Test dependencies -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!--
+          NOTE: rest-assured is deliberately absent. Its bundled legacy Groovy HTTPBuilder
+          client fails at transport level in this environment (a NullPointerException from
+          ClosureMetaClass dispatch inside HTTPBuilder.doRequest, after the server is already
+          up), which made every HTTP-touching integration test error for reasons unrelated to
+          the application. HTTP tests use Spring's RestTestClient instead — Boot 4 moved
+          TestRestTemplate into a separate spring-boot-restclient-test module that is not on
+          this build's classpath. Like TestRestTemplate, RestTestClient does not throw on 4xx,
+          so status-code assertions stay explicit.
+        -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-kafka</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.awaitility</groupId>
+            <artifactId>awaitility</artifactId>
+            <version>4.2.2</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <!--
+              Durable Ryuk disable for integration tests. The Testcontainers reaper has been
+              observed reclaiming a module's Postgres container mid-run in this sandbox
+              (postmaster-exit / connection-refused), and exporting TESTCONTAINERS_RYUK_DISABLED
+              by hand before every build is not a fix that survives CI or a colleague's shell.
+
+              Declared here rather than in the parent pom because the parent's
+              surefire/failsafe configuration is out of scope; the includes and the
+              integration-test/verify executions are still inherited from it, this block only
+              adds the environment. A matching src/test/resources/testcontainers.properties
+              covers IDE runs, which never go through this plugin.
+
+              Consequence worth knowing: with the reaper off, containers are cleaned up by the
+              JVM shutdown hook instead, so a hard-killed JVM can leave containers behind.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <environmentVariables>
+                        <TESTCONTAINERS_RYUK_DISABLED>true</TESTCONTAINERS_RYUK_DISABLED>
+                    </environmentVariables>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
