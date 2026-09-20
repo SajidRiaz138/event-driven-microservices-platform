@@ -37,6 +37,9 @@ See the [C4 diagrams](docs/diagrams/c4-context-and-containers.md), the
 - **Payment reconciliation** — unknown provider outcomes never double-charge ([ADR-0016](docs/adr/0016-payment-operations-and-reconciliation.md)).
 - **No oversell** — atomic conditional reservation + optimistic locking ([ADR-0015](docs/adr/0015-concurrency-and-resource-management.md)).
 - **Observability** — RED/USE metrics, structured logs, W3C tracing across REST→Kafka→DB ([ADR-0013](docs/adr/0013-observability-strategy.md)).
+- **Cloud-native, proven runnable** — one command runs the whole stack on Docker Compose *or*
+  on a local Kubernetes (minikube) via Helm (library + umbrella charts), with least-privilege
+  per-service database roles ([ADR-0008](docs/adr/0008-helm-primary-kustomize-deferred.md), [ADR-0007](docs/adr/0007-polyglot-persistence-and-dev-simplification.md)).
 
 ## Tech stack
 
@@ -84,6 +87,10 @@ holds the Deployment/Service/probe templates, four service charts are little mor
 `values.yaml`, and `platform-umbrella` adds the in-cluster infrastructure (PostgreSQL with
 schema-per-service, single-broker Kafka in KRaft mode, Redis, Keycloak importing the same realm
 export). `make demo` then runs unchanged against the cluster through a port-forwarded gateway.
+
+Each service authenticates to PostgreSQL as its **own least-privilege role**, granted only on
+its own schema ([ADR-0007](docs/adr/0007-polyglot-persistence-and-dev-simplification.md)) —
+verified on a fresh cluster (cross-schema reads are denied in every direction).
 
 ```bash
 minikube start -p edmp --memory=8192 --cpus=4
