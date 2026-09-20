@@ -16,12 +16,19 @@ order, coordinating three independently-owned services via an async saga and sta
 correct under failure.
 
 ```
-Customer ──REST──▶ API Gateway ──▶ order-service (saga orchestrator)
-                                        │  commands / reply events (Kafka)
-                          ┌─────────────┼─────────────┐
-                          ▼             ▼             ▼
-                    inventory-svc   payment-svc   (audit/notify — later)
-                    (reserve/TTL)   (auth→capture)
+                         issues / validates JWT (OIDC)
+              Keycloak ◀───────────────────────────────┐
+                                                        │
+ Customer ──REST + JWT──▶ API Gateway ──REST──▶ order-service  (saga orchestrator)
+                          (routing,               │  commands / reply events (Kafka)
+                           edge JWT,        ┌──────┴───────┐
+                           rate-limit)      ▼              ▼
+                                     inventory-service   payment-service
+                                     (reserve / TTL,      (authorize → capture,
+                                      no oversell)         reconcile on unknown)
+
+ Every service validates the JWT itself and owns its own PostgreSQL schema.
+ Deferred (roadmap): notification (MongoDB), audit (Cassandra), ai (Spring AI + pgvector).
 ```
 
 See the [C4 diagrams](docs/diagrams/c4-context-and-containers.md), the

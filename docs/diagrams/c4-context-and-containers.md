@@ -31,15 +31,15 @@ flowchart TB
     end
 
     subgraph svcs[Services - Phase 1]
-        auth["auth-service<br/>OAuth2/OIDC, JWT<br/>(Postgres: auth schema)"]
+        auth["auth-service = Keycloak<br/>OAuth2/OIDC, JWT (RS256)<br/>realm import, no app DB"]
         order["order-service<br/>REST + SAGA ORCHESTRATOR + outbox<br/>(Postgres: order schema)"]
         pay["payment-service<br/>authorize/capture/refund + outbox<br/>(Postgres: payment schema)"]
         inv["inventory-service<br/>reservations (TTL) + outbox<br/>(Postgres: inventory schema) + Redis cache"]
     end
 
     subgraph infra[Infrastructure]
-        kafka[("Kafka<br/>+ Schema Registry")]
-        pg[("PostgreSQL<br/>schema-per-service")]
+        kafka[("Kafka<br/>(Avro bytes, no registry)")]
+        pg[("PostgreSQL<br/>schema + role per service")]
         redis[("Redis<br/>display-only cache")]
         obs["Observability<br/>Prometheus / Grafana / OTel"]
     end
