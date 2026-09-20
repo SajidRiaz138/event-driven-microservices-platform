@@ -20,7 +20,8 @@ service:
 
 env:
   SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/orderdb
-  POSTGRES_INVENTORY_USER: appuser
+  # inventory_svc owns the `inventory` schema and has no privilege on any other (ADR-0007).
+  POSTGRES_INVENTORY_USER: inventory_svc
   SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
   REDIS_HOST: redis
   REDIS_PORT: "6379"
@@ -29,9 +30,10 @@ env:
   JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=65 -XX:+UseSerialGC
 
 secretEnv:
-  - name: POSTGRES_APP_PASSWORD
+  # Only this service's own role password is mounted here.
+  - name: POSTGRES_INVENTORY_PASSWORD
     secret: platform-secrets
-    key: postgres-app-password
+    key: postgres-inventory-password
 
 resources:
   requests:

@@ -3,12 +3,15 @@
 --
 -- order-service's V1__Create_order_tables.sql starts with
 --     CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
--- which only succeeds for a role privileged enough to install it. It happens to work as
--- appuser today because appuser owns orderdb and uuid-ossp is a trusted extension, but
--- that is an emergent property of the env wiring, not something the repo states. Doing it
--- here makes the requirement explicit and keeps Flyway working if the owning role changes.
+-- which only succeeds for a role privileged enough to install it. Installing it here, as the
+-- bootstrap superuser, is what lets order-service run Flyway as an unprivileged role
+-- (order_svc) that has no extension-install rights of its own: PostgreSQL checks for a
+-- duplicate extension BEFORE it checks privileges, so once the extension exists the IF NOT
+-- EXISTS in the migration is a NOTICE and not a permission error. Verified against 17.6.
+--
+-- It is installed into `public`, which is also where order-service's tables live, so the
+-- uuid_generate_v4() column defaults in V1 resolve when CREATE TABLE parses them.
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Schemas are NOT created here on purpose: payment-service and inventory-service each run
--- CREATE SCHEMA IF NOT EXISTS <name> inside their own V1 migration (deliberate, see the
--- comments in those files), and order-service owns the public schema of orderdb.
+-- Roles, schemas and grants are in 02-service-roles.sh, which runs next. They are not here
+-- because the role passwords come from the environment and a .sql file cannot read it.

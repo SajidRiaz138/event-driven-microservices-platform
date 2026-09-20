@@ -24,7 +24,7 @@ class OrderServiceApplicationIT {
 	@Container
 	static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:17.6")
 			.withDatabaseName("orderdb")
-			.withUsername("appuser")
+			.withUsername("order_svc")
 			.withPassword("testpass");
 
 	@DynamicPropertySource

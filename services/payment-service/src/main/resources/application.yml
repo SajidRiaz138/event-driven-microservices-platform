@@ -20,11 +20,13 @@ spring:
 
   datasource:
     url: jdbc:postgresql://localhost:5432/orderdb
-    # ADR-0007 wants a DB role per service. Provisioning that role is an infrastructure concern
-    # (deploy/local/compose.yaml currently creates only `appuser`), so the username is a property
-    # with a dev default: pointing this service at its own role later is configuration, not code.
-    username: ${POSTGRES_PAYMENT_USER:appuser}
-    password: ${POSTGRES_APP_PASSWORD:changeme-dev-only}
+    # ADR-0007's DB role per service, now actually provisioned: payment_svc owns the `payment`
+    # schema and has no privilege on any other, so a compromise here cannot read order or
+    # inventory data. deploy/local/postgres-init/02-service-roles.sh creates it for both the
+    # compose stack and the Helm chart; a real deployment provisions it elsewhere and
+    # overrides these two properties.
+    username: ${POSTGRES_PAYMENT_USER:payment_svc}
+    password: ${POSTGRES_PAYMENT_PASSWORD:changeme-dev-only}
     hikari:
       # Scopes each connection's search_path to this service's schema. Belt and braces only: the
       # migration, the entities and the native queries all name the schema explicitly, so nothing
@@ -132,3 +134,10 @@ management:
       # exist, and it used to be supplied only by the container environment.
       probes:
         enabled: ${MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED:true}
+      # Readiness holds only the application's own readiness state — db and Kafka stay out, so
+      # a dependency blip does not take every replica out of rotation (ADR-0014). Stated rather
+      # than inherited from Boot's default, so a framework default cannot change it silently.
+      # Full rationale in order-service's application.yml.
+      group:
+        readiness:
+          include: readinessState

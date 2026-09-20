@@ -9,8 +9,19 @@ spring:
 
   datasource:
     url: jdbc:postgresql://localhost:5432/orderdb
-    username: appuser
-    password: ${POSTGRES_APP_PASSWORD:changeme-dev-only}
+    # Its own least-privilege role (ADR-0007), not the shared bootstrap `appuser`. order_svc
+    # is granted USAGE + CREATE on `public` and nothing else, so Flyway can create this
+    # service's tables and its own history table, and cannot see the payment or inventory
+    # schemas at all. Provisioned by deploy/local/postgres-init/02-service-roles.sh (compose
+    # and Helm share that file); a real deployment provisions the role its own way and
+    # overrides these two properties.
+    #
+    # This service stays on `public` rather than moving to an `order` schema: V1's
+    # uuid_generate_v4() column DEFAULTs are resolved when CREATE TABLE is parsed, and
+    # scoping the connection to another schema would put the extension's function out of
+    # search_path and fail the migration. See 02-service-roles.sh for the full rationale.
+    username: ${POSTGRES_ORDER_USER:order_svc}
+    password: ${POSTGRES_ORDER_PASSWORD:changeme-dev-only}
 
   jpa:
     hibernate:
@@ -124,3 +135,24 @@ management:
       # overridable by MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED.
       probes:
         enabled: ${MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED:true}
+      # Readiness deliberately contains ONLY the application's own readiness state — not db,
+      # not Kafka, not any other dependency indicator (ADR-0014).
+      #
+      # This is the behaviour Spring Boot already defaults to, and that is exactly why it is
+      # written down: it was an invariant the whole deployment depends on that nothing in the
+      # repository stated, so a future change to a framework default could have moved a
+      # dependency into this group and nobody would have been looking. Kubernetes removes a
+      # NotReady pod from its Service, so a db-gated readiness group turns one Postgres blip
+      # into every replica leaving rotation at once — the outage the blip did not cause. The
+      # platform already handles transient dependency failure at the application level
+      # (consumer retries, the transactional outbox, idempotent replay), so readiness answers
+      # "is this application up and able to serve", not "is every dependency healthy".
+      #
+      # Liveness is unchanged and stays separate: a service that cannot reach Postgres is
+      # retrying, not wedged, and restarting it would help nothing.
+      #
+      # The aggregate /actuator/health keeps every indicator, including db, for humans and
+      # for monitoring — this only scopes what the probe endpoint answers for.
+      group:
+        readiness:
+          include: readinessState

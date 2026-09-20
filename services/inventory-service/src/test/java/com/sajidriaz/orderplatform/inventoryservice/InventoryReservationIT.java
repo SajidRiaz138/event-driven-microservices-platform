@@ -80,7 +80,7 @@ class InventoryReservationIT {
     @Container
     static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:17.6")
             .withDatabaseName("orderdb")
-            .withUsername("appuser")
+            .withUsername("inventory_svc")
             .withPassword("testpass");
 
     @Container

@@ -29,7 +29,7 @@ class PaymentServiceApplicationIT {
     @Container
     static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:17.6")
             .withDatabaseName("orderdb")
-            .withUsername("appuser")
+            .withUsername("payment_svc")
             .withPassword("testpass");
 
     @DynamicPropertySource

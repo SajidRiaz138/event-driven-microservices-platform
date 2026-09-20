@@ -30,13 +30,21 @@ services:
       POSTGRES_DB: orderdb
       POSTGRES_USER: appuser
       POSTGRES_PASSWORD: ${POSTGRES_APP_PASSWORD:-changeme-dev-only}
+      # Read by postgres-init/02-service-roles.sh to set each service role's password, and
+      # passed to the services themselves below — one value per role, so the two sides
+      # cannot disagree. Dev defaults; nothing real is committed (see .env.example).
+      POSTGRES_ORDER_PASSWORD: ${POSTGRES_ORDER_PASSWORD:-changeme-dev-only}
+      POSTGRES_PAYMENT_PASSWORD: ${POSTGRES_PAYMENT_PASSWORD:-changeme-dev-only}
+      POSTGRES_INVENTORY_PASSWORD: ${POSTGRES_INVENTORY_PASSWORD:-changeme-dev-only}
     ports:
       - "${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # Schema-per-service (ADR-0007) is created by each service's own Flyway V1 migration
-      # (payment, inventory) or is the public schema of orderdb (order). This init script
-      # only provides the uuid-ossp extension order-service's V1 depends on.
+      # Schema AND role per service (ADR-0007): 01-extensions.sql installs uuid-ossp,
+      # 02-service-roles.sh creates order_svc/payment_svc/inventory_svc and grants each one
+      # only its own schema. appuser remains the bootstrap/admin role — no service uses it.
+      # Both scripts run once, on first init of the volume; `make down` removes the volume,
+      # so a fresh `make up` always re-provisions them.
       - ./postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U appuser -d orderdb" ]
@@ -170,8 +178,9 @@ services:
     container_name: edmp-order-service
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/orderdb
-      SPRING_DATASOURCE_USERNAME: appuser
-      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:-changeme-dev-only}
+      # Its own least-privilege role (ADR-0007), granted only on the `public` schema it owns.
+      POSTGRES_ORDER_USER: order_svc
+      POSTGRES_ORDER_PASSWORD: ${POSTGRES_ORDER_PASSWORD:-changeme-dev-only}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JWT_ISSUER_URI: http://keycloak:8080/realms/order-platform
       JWT_AUDIENCE: ${JWT_AUDIENCE:-order-platform}
@@ -200,8 +209,8 @@ services:
     container_name: edmp-payment-service
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/orderdb
-      POSTGRES_PAYMENT_USER: appuser
-      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:-changeme-dev-only}
+      POSTGRES_PAYMENT_USER: payment_svc
+      POSTGRES_PAYMENT_PASSWORD: ${POSTGRES_PAYMENT_PASSWORD:-changeme-dev-only}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=65 -XX:+UseSerialGC
@@ -226,8 +235,8 @@ services:
     container_name: edmp-inventory-service
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/orderdb
-      POSTGRES_INVENTORY_USER: appuser
-      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:-changeme-dev-only}
+      POSTGRES_INVENTORY_USER: inventory_svc
+      POSTGRES_INVENTORY_PASSWORD: ${POSTGRES_INVENTORY_PASSWORD:-changeme-dev-only}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       REDIS_HOST: redis
       REDIS_PORT: 6379

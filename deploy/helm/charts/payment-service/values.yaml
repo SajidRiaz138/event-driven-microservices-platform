@@ -22,15 +22,17 @@ env:
   SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/orderdb
   # payment-service reads its datasource username from POSTGRES_PAYMENT_USER, not from
   # SPRING_DATASOURCE_USERNAME — its application.yml wires the placeholder that way.
-  POSTGRES_PAYMENT_USER: appuser
+  # payment_svc owns the `payment` schema and has no privilege on any other (ADR-0007).
+  POSTGRES_PAYMENT_USER: payment_svc
   SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
   MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
   JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=65 -XX:+UseSerialGC
 
 secretEnv:
-  - name: POSTGRES_APP_PASSWORD
+  # Only this service's own role password is mounted here.
+  - name: POSTGRES_PAYMENT_PASSWORD
     secret: platform-secrets
-    key: postgres-app-password
+    key: postgres-payment-password
 
 resources:
   requests:

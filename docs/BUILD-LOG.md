@@ -68,6 +68,26 @@ A durable, version-controlled record of **the order in which the platform is bui
   removed. (Was: parent pinned 3.2.4 built for Spring 6, breaking @KafkaListener on Boot 4.)
 - **Blocking retries** (DefaultErrorHandler) implemented now; ADR-0014 non-blocking retry
   topics (`-retry-1s/-10s/-1m`) recorded as a follow-up.
+
+### Design polish (post-Phase-1)
+- ✅ **ADR-0007's "schema AND role per service" is now true.** order/payment/inventory each
+  authenticate as their own least-privilege Postgres role (`order_svc`, `payment_svc`,
+  `inventory_svc`) instead of the shared `appuser`, provisioned by
+  `deploy/local/postgres-init/02-service-roles.sh` — one file, used by both the compose stack
+  and the Helm `postgres-init` ConfigMap. Each role is granted only its own schema; verified
+  that Flyway applies under each restricted role and that all six cross-schema reads are
+  refused. order-service deliberately stays on `public` (its V1 resolves `uuid_generate_v4()`
+  column DEFAULTs at `CREATE TABLE` time, so scoping the connection to an `order` schema would
+  put the extension out of `search_path` and fail the migration). `appuser` remains the
+  bootstrap/admin role that no service uses.
+- ✅ **Readiness health group is explicit: `readinessState` only — `db` and Kafka stay out.**
+  Gating readiness on a dependency makes Kubernetes pull every replica from its Service on one
+  Postgres blip, turning a recoverable hiccup into an outage; app-level resilience (consumer
+  retries, transactional outbox, idempotent replay) is what handles transient dependency
+  failure, so readiness means "this application is up and able to serve", not "all dependencies
+  are healthy". This was previously only Spring Boot's default grouping — nothing stated the
+  invariant, so a framework default could have changed it silently. Liveness unchanged; the
+  aggregate `/actuator/health` still reports every indicator for humans.
 - **REQUIRES_RECONCILIATION deferred to payment-service** (needs a `PaymentCaptureUnknown`
   Avro event + ADR-0016 reconciliation loop). order-service sweeper does the safe half
   (never confirms/cancels at pivot).

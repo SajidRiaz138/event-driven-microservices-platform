@@ -17,13 +17,21 @@ data:
   {{/*
     Mirrors deploy/local/postgres-init/ — supplied with
     --set-file postgres.initSql=deploy/local/postgres-init/01-extensions.sql
-    so the SQL exists once in the repository and cannot drift from the compose stack.
-    The postgres image runs *.sql in this directory once, as the bootstrap superuser, on
-    first initialization of an empty data directory — same semantics as the bind mount it
-    replaces, including the "only on a fresh volume" part.
+    --set-file postgres.initRolesSh=deploy/local/postgres-init/02-service-roles.sh
+    so each file exists once in the repository and cannot drift from the compose stack.
+    The postgres image runs this directory once, as the bootstrap superuser, on first
+    initialization of an empty data directory — same semantics as the bind mount it
+    replaces, including the "only on a fresh volume" part — in filename order, so the
+    extension is installed before the roles that depend on it being there.
+
+    02-service-roles.sh arrives from the ConfigMap without the executable bit, so the
+    entrypoint sources it rather than executing it. The script is written for that (no
+    `exit`, no `set -u`), which is also how the compose bind mount runs it.
   */}}
   01-extensions.sql: |
 {{ .Values.postgres.initSql | required "postgres.initSql is empty. Install with --set-file postgres.initSql=deploy/local/postgres-init/01-extensions.sql" | indent 4 }}
+  02-service-roles.sh: |
+{{ .Values.postgres.initRolesSh | required "postgres.initRolesSh is empty. Install with --set-file postgres.initRolesSh=deploy/local/postgres-init/02-service-roles.sh" | indent 4 }}
 ---
 apiVersion: v1
 kind: Service
@@ -57,7 +65,7 @@ spec:
       labels:
         {{- include "platform.labels" (dict "root" $ "name" "postgres" "component" "database") | nindent 8 }}
       annotations:
-        checksum/init: {{ .Values.postgres.initSql | sha256sum }}
+        checksum/init: {{ printf "%s%s" .Values.postgres.initSql .Values.postgres.initRolesSh | sha256sum }}
     spec:
       securityContext:
         {{/*
@@ -83,6 +91,25 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.secrets.name }}
                   key: postgres-app-password
+            {{/*
+              Read by 02-service-roles.sh to set each service role's password. Postgres is the
+              one place that needs all three; each service gets only its own key.
+            */}}
+            - name: POSTGRES_ORDER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.name }}
+                  key: postgres-order-password
+            - name: POSTGRES_PAYMENT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.name }}
+                  key: postgres-payment-password
+            - name: POSTGRES_INVENTORY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.name }}
+                  key: postgres-inventory-password
             {{/*
               A subdirectory, not the mount point itself: initdb refuses a non-empty
               directory, and a mounted volume is not guaranteed to be empty.

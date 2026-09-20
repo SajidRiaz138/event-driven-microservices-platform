@@ -16,10 +16,11 @@ HELM_RELEASE ?= platform
 K8S_NAMESPACE ?= edmp
 MINIKUBE_PROFILE ?= edmp
 SERVICES ?= api-gateway order-service payment-service inventory-service
-# The realm export and the Postgres init SQL are read from the one place they already live,
-# so the charts cannot drift from the compose stack.
+# The realm export and the Postgres init files are read from the one place they already
+# live, so the charts cannot drift from the compose stack.
 HELM_FILES = \
 	--set-file postgres.initSql=deploy/local/postgres-init/01-extensions.sql \
+	--set-file postgres.initRolesSh=deploy/local/postgres-init/02-service-roles.sh \
 	--set-file keycloak.realmJson=services/auth-service/realm/order-platform-realm.json
 
 .PHONY: help

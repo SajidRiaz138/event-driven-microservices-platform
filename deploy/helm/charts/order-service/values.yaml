@@ -19,7 +19,10 @@ service:
 
 env:
   SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/orderdb
-  SPRING_DATASOURCE_USERNAME: appuser
+  # Its own least-privilege role (ADR-0007), granted only on the `public` schema it owns —
+  # not the shared bootstrap appuser. Provisioned by the umbrella chart's postgres-init
+  # ConfigMap, which is the same file the compose stack uses.
+  POSTGRES_ORDER_USER: order_svc
   SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
   # The issuer is compared by exact string equality, and Keycloak stamps it from
   # KC_HOSTNAME. Both sides say http://keycloak:8080/realms/order-platform; changing one
@@ -31,9 +34,10 @@ env:
   JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=65 -XX:+UseSerialGC
 
 secretEnv:
-  - name: POSTGRES_APP_PASSWORD
+  # Only this service's own role password is mounted here.
+  - name: POSTGRES_ORDER_PASSWORD
     secret: platform-secrets
-    key: postgres-app-password
+    key: postgres-order-password
 
 # compose mem_limit: 768m. MaxRAMPercentage=65 is computed from the limit, so the limit
 # is what sizes the heap — keep them in step.

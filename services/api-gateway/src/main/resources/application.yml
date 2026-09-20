@@ -68,3 +68,10 @@ management:
       # exist, and it used to be supplied only by the container environment.
       probes:
         enabled: ${MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED:true}
+      # Readiness holds only the application's own readiness state — no dependency indicators,
+      # so a blip does not take every replica out of rotation (ADR-0014). Stated rather than
+      # inherited from Boot's default, so a framework default cannot change it silently.
+      # Full rationale in order-service's application.yml.
+      group:
+        readiness:
+          include: readinessState

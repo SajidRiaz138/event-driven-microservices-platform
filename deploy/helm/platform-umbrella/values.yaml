@@ -15,23 +15,35 @@
 # states outright are not secrets. Override on install:
 #   --set secrets.postgresAppPassword=... --set secrets.keycloakAdminPassword=...
 # or point the services at an externally managed Secret with secrets.create=false.
+#
+# One password per DB role (ADR-0007): appuser is the bootstrap/admin role no service uses,
+# and order/payment/inventory each authenticate as their own least-privilege role.
 # ---------------------------------------------------------------------------------------
 secrets:
   create: true
   name: platform-secrets
   postgresAppPassword: changeme-dev-only
+  postgresOrderPassword: changeme-dev-only
+  postgresPaymentPassword: changeme-dev-only
+  postgresInventoryPassword: changeme-dev-only
   keycloakAdminPassword: admin
 
 # ---------------------------------------------------------------------------------------
 # PostgreSQL 17.6 — the same image tag the Testcontainers integration tests run against.
-# One database, one role, schema-per-service (ADR-0007): order-service owns `public`,
-# payment-service `payment`, inventory-service `inventory`. The schemas are created by the
-# services' own Flyway V1 migrations; this chart only has to provide the uuid-ossp
-# extension that order-service's V1 depends on, which is what initSql is for.
+# One database, schema AND role per service (ADR-0007): order-service owns `public` as
+# order_svc, payment-service `payment` as payment_svc, inventory-service `inventory` as
+# inventory_svc, each granted nothing on the others. `username` below is the bootstrap
+# superuser (appuser): it owns the database and backs the pg_isready probes, and no service
+# authenticates as it.
 #
-# initSql is not defaulted on purpose: it is supplied from the file that the compose stack
-# already uses, so there is exactly one copy of it in the repository.
+# The init files are not defaulted on purpose: they are supplied from the files the compose
+# stack already uses, so there is exactly one copy of each in the repository.
 #   --set-file postgres.initSql=deploy/local/postgres-init/01-extensions.sql
+#   --set-file postgres.initRolesSh=deploy/local/postgres-init/02-service-roles.sh
+#
+# Both run only on first initialization of an empty data directory. The PVC survives
+# `helm uninstall`, so changing them on an existing release does nothing until the PVC is
+# deleted — see the teardown section of docs/deployment/kubernetes-minikube.md.
 # ---------------------------------------------------------------------------------------
 postgres:
   enabled: true
@@ -42,6 +54,7 @@ postgres:
   database: orderdb
   username: appuser
   initSql: ""
+  initRolesSh: ""
   persistence:
     enabled: true
     size: 2Gi

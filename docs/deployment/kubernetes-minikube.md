@@ -175,15 +175,16 @@ whole dependency tree again.
 make k8s-deps          # helm dependency update for the four service charts, then the umbrella
 ```
 
-Then install. Two `--set-file` flags feed the chart the realm export and the Postgres init SQL
-**from the files the compose stack already uses**, instead of copies living inside the chart —
-one copy of each in the repository, so they cannot drift:
+Then install. Three `--set-file` flags feed the chart the realm export and the two Postgres init
+files **from the files the compose stack already uses**, instead of copies living inside the
+chart — one copy of each in the repository, so they cannot drift:
 
 ```bash
 helm upgrade --install platform deploy/helm/platform-umbrella \
   -n edmp --create-namespace \
   -f deploy/helm/platform-umbrella/values-minikube.yaml \
   --set-file postgres.initSql=deploy/local/postgres-init/01-extensions.sql \
+  --set-file postgres.initRolesSh=deploy/local/postgres-init/02-service-roles.sh \
   --set-file keycloak.realmJson=services/auth-service/realm/order-platform-realm.json \
   --wait --timeout 10m
 ```
@@ -191,12 +192,24 @@ helm upgrade --install platform deploy/helm/platform-umbrella \
 `make k8s-install` is exactly that command. Both are idempotent — run them again after editing
 a chart.
 
+> **Upgrading a cluster installed before the per-service DB roles existed?** The init files run
+> only when Postgres initializes an empty data directory, and the PVC survives `helm uninstall`.
+> On such a cluster `order_svc` / `payment_svc` / `inventory_svc` do not exist yet and the
+> services will fail to authenticate. Delete the volume and let it reinitialize:
+> `helm uninstall platform -n edmp && kubectl -n edmp delete pvc data-postgres-0`, then install
+> again. (This destroys the dev database — which is the intent here.)
+
 Passwords come from a `Secret` the chart creates with the same dev placeholders as
-`.env.example`. Override them, or bring your own Secret:
+`.env.example` — one key per DB role, so each service mounts only its own credential. Override
+them, or bring your own Secret:
 
 ```bash
-#   --set secrets.postgresAppPassword=... --set secrets.keycloakAdminPassword=...
-#   --set secrets.create=false            # then create `platform-secrets` yourself
+#   --set secrets.postgresAppPassword=...       # bootstrap/admin role
+#   --set secrets.postgresOrderPassword=...     # order_svc
+#   --set secrets.postgresPaymentPassword=...   # payment_svc
+#   --set secrets.postgresInventoryPassword=... # inventory_svc
+#   --set secrets.keycloakAdminPassword=...
+#   --set secrets.create=false                  # then create `platform-secrets` yourself
 ```
 
 To check the chart without a cluster at all — useful in CI:
@@ -249,6 +262,14 @@ recoverable blip into an outage, which is the failure mode
 [ADR-0014](../adr/0014-message-delivery-semantics.md) is about. Liveness is separate again: a
 service that cannot reach a dependency is not wedged, it is retrying, and restarting it does not
 help.
+
+That grouping is now **stated** rather than inherited: every service sets
+`management.endpoint.health.group.readiness.include: readinessState` in its `application.yml`.
+It was previously only Spring Boot's default grouping, so the invariant the whole deployment
+depends on was written down nowhere and a future framework default could have moved `db` into
+readiness silently. Readiness answers "is this application up and able to serve", not "is every
+dependency healthy" — the platform handles transient dependency failure at the application level
+instead (consumer retries, the transactional outbox, idempotent replay).
 
 (Worth knowing: on Spring Boot 4.1.1 there is **no** Kafka health indicator in that component
 list — the broker cannot affect either endpoint today. The separation still matters for `db`, and
@@ -395,7 +416,7 @@ kubectl -n edmp exec postgres-0 -- psql -U appuser -d orderdb \
 
 Schema-per-service ([ADR-0007](../adr/0007-polyglot-persistence-and-dev-simplification.md)) —
 one database, three schemas, each service owning its own tables plus its own outbox and dedup
-table:
+table, **and each connecting as its own role**:
 
 ```bash
 kubectl -n edmp exec postgres-0 -- psql -U appuser -d orderdb -c "\dn" \
@@ -405,15 +426,42 @@ kubectl -n edmp exec postgres-0 -- psql -U appuser -d orderdb -c "\dn" \
 ```
 
 ```
-   Name    |       Owner            table_schema | count
------------+-------------------    --------------+-------
- inventory | appuser                inventory    |     6
- payment   | appuser                payment      |     6
- public    | pg_database_owner      public       |     7
+   Name    |     Owner           table_schema | count
+-----------+---------------     --------------+-------
+ inventory | inventory_svc       inventory    |     6
+ payment   | payment_svc         payment      |     6
+ public    | pg_database_owner   public       |     7
 ```
 
+Each schema is owned by the role that migrates into it (`public` keeps its standard owner, with
+`order_svc` granted `USAGE, CREATE` on it). `appuser` is the bootstrap/admin role: it owns the
+database, installs `uuid-ossp` and backs the `pg_isready` probes, and no service authenticates
+as it.
+
+The privilege boundary is the point, so check it rather than trusting it — every one of these
+must be refused:
+
+```bash
+kubectl -n edmp exec postgres-0 -- env PGPASSWORD=changeme-dev-only \
+  psql -h localhost -U payment_svc -d orderdb -c "SELECT count(*) FROM public.orders;"
+# ERROR:  permission denied for schema public
+kubectl -n edmp exec postgres-0 -- env PGPASSWORD=changeme-dev-only \
+  psql -h localhost -U order_svc -d orderdb -c "SELECT count(*) FROM payment.payment_intent;"
+# ERROR:  permission denied for schema payment
+```
+
+Note that the roles are created by the `postgres-init` ConfigMap's `02-service-roles.sh`, which
+— like every `docker-entrypoint-initdb.d` script — runs **only on first initialization of an
+empty data directory**. The Postgres PVC deliberately survives `helm uninstall`, so on a cluster
+whose volume predates this change the roles will not exist and the services will fail to
+authenticate. Drop the volume (see [§9](#9-teardown): `kubectl -n edmp delete pvc data-postgres-0`)
+and reinstall, or apply the script by hand as `appuser`.
+
 That the `uuid-ossp` extension is present proves the chart's init ConfigMap really ran through
-the image's `docker-entrypoint-initdb.d` hook, before order-service's V1 migration needed it:
+the image's `docker-entrypoint-initdb.d` hook, before order-service's V1 migration needed it —
+which is also what lets `order_svc`, a role with no extension-install rights of its own, run that
+migration: PostgreSQL checks for a duplicate extension before it checks privileges, so
+`CREATE EXTENSION IF NOT EXISTS` is a NOTICE rather than a permission error once it is installed:
 
 ```bash
 kubectl -n edmp exec postgres-0 -- psql -U appuser -d orderdb \
