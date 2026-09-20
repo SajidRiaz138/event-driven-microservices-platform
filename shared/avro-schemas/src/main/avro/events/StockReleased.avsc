@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "StockReleased",
+  "namespace": "com.sajidriaz.orderplatform.events.inventory",
+  "doc": "Fact: a stock reservation was released (reply to ReleaseStock, or on TTL expiry).",
+  "fields": [
+    { "name": "orderId",       "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "reservationId", "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "releasedAt",    "type": { "type": "long", "logicalType": "timestamp-millis" } }
+  ]
+}

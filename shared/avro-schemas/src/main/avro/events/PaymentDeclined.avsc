@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "PaymentDeclined",
+  "namespace": "com.sajidriaz.orderplatform.events.payment",
+  "doc": "Fact: authorization/capture was declined by the provider. A NORMAL saga outcome (compensation), never a DLQ case.",
+  "fields": [
+    { "name": "orderId",          "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "paymentIntentId",  "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "paymentAttemptId", "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "declinedAt",       "type": { "type": "long", "logicalType": "timestamp-millis" } }
+  ]
+}

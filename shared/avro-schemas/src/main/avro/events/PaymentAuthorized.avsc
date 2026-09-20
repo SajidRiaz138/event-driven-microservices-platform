@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "PaymentAuthorized",
+  "namespace": "com.sajidriaz.orderplatform.events.payment",
+  "doc": "Fact: funds were authorized (pre-capture hold). Pre-pivot — still compensatable.",
+  "fields": [
+    { "name": "orderId",           "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "paymentIntentId",   "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "paymentAttemptId",  "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "paymentOperationId","type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "amount",            "type": "com.sajidriaz.orderplatform.common.Money" },
+    { "name": "authorizedAt",      "type": { "type": "long", "logicalType": "timestamp-millis" } }
+  ]
+}

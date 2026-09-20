@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "RefundPayment",
+  "namespace": "com.sajidriaz.orderplatform.commands.payment",
+  "doc": "Command: refund a captured payment (post-pivot compensation). Only valid when capture is established SUCCEEDED (ADR-0016).",
+  "fields": [
+    { "name": "orderId",           "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "paymentIntentId",   "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "paymentOperationId","type": { "type": "string", "logicalType": "uuid" }, "doc": "The capture operation being refunded." },
+    { "name": "amount",            "type": "com.sajidriaz.orderplatform.common.Money" }
+  ]
+}

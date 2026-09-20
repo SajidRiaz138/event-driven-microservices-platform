@@ -1,0 +1,18 @@
+{
+  "type": "record",
+  "name": "ReserveStock",
+  "namespace": "com.sajidriaz.orderplatform.commands.inventory",
+  "doc": "Command: reserve stock for an order (with TTL). Issued by the saga orchestrator to inventory-service.",
+  "fields": [
+    { "name": "orderId",       "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "reservationId", "type": { "type": "string", "logicalType": "uuid" }, "doc": "Idempotent reservation id (ADR-0015)." },
+    { "name": "lines",
+      "type": { "type": "array", "items": {
+        "type": "record", "name": "ReserveLine",
+        "fields": [
+          { "name": "sku", "type": "string" },
+          { "name": "quantity", "type": "int" }
+        ] } } },
+    { "name": "ttlSeconds", "type": "int", "doc": "Reservation time-to-live." }
+  ]
+}

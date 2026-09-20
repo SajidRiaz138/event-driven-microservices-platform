@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "AuthorizePayment",
+  "namespace": "com.sajidriaz.orderplatform.commands.payment",
+  "doc": "Command: authorize funds for an order. Issued by the saga orchestrator to payment-service.",
+  "fields": [
+    { "name": "orderId",         "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "customerId",      "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "paymentIntentId", "type": { "type": "string", "logicalType": "uuid" }, "doc": "The payment intent for this order (one per order). See ADR-0016." },
+    { "name": "paymentAttemptId","type": { "type": "string", "logicalType": "uuid" }, "doc": "This attempt (a new attempt is a distinct id; enables multiple attempts / split payments)." },
+    { "name": "amount",          "type": "com.sajidriaz.orderplatform.common.Money" },
+    { "name": "paymentMethodToken", "type": "string", "doc": "Opaque provider token resolved by order-service from the stored paymentInstrumentId. NEVER a raw PAN (ADR-0009)." }
+  ]
+}

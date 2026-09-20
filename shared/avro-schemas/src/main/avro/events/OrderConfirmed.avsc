@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "OrderConfirmed",
+  "namespace": "com.sajidriaz.orderplatform.events.order",
+  "doc": "Fact: the order saga completed successfully (payment captured, stock reserved).",
+  "fields": [
+    { "name": "orderId",     "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "confirmedAt", "type": { "type": "long", "logicalType": "timestamp-millis" } }
+  ]
+}

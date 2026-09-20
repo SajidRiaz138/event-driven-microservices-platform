@@ -1,0 +1,89 @@
+# =============================================================
+#  SECRETS & CREDENTIALS  — never commit these
+# =============================================================
+token
+*token*
+*.token
+secret
+secrets
+*secret*
+*.secret
+credentials
+*credential*
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*.jks
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+*.ppk
+
+# Environment / dotenv files (may hold DB passwords, API keys)
+.env
+.env.*
+*.env
+# keep the documented, non-secret template committable (negation must come last):
+!.env.example
+
+# Cloud provider credentials
+.aws/
+.gcp/
+gcp-*.json
+*service-account*.json
+*serviceaccount*.json
+azure.json
+kube.config
+kubeconfig
+*.kubeconfig
+
+# =============================================================
+#  JAVA / BUILD ARTIFACTS
+# =============================================================
+target/
+build/
+out/
+*.class
+*.jar
+*.war
+*.ear
+!**/gradle/wrapper/gradle-wrapper.jar
+# keep the committed Maven wrapper jar (if present):
+!.mvn/wrapper/maven-wrapper.jar
+hs_err_pid*
+
+# Maven
+.mvn/timing.properties
+
+# =============================================================
+#  IDE / EDITOR
+# =============================================================
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+*.swp
+*.swo
+*~
+
+# =============================================================
+#  OS
+# =============================================================
+.DS_Store
+Thumbs.db
+
+# =============================================================
+#  LOGS / TEMP / MISC
+# =============================================================
+*.log
+logs/
+tmp/
+*.tmp
+docker-compose.override.yml

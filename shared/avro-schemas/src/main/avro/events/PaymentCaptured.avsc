@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "PaymentCaptured",
+  "namespace": "com.sajidriaz.orderplatform.events.payment",
+  "doc": "Fact: funds were captured. This is the saga PIVOT — after this, the saga rolls forward; before it, failures compensate (ADR-0003).",
+  "fields": [
+    { "name": "orderId",           "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "paymentIntentId",   "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "paymentAttemptId",  "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "paymentOperationId","type": { "type": "string", "logicalType": "uuid" }, "doc": "The capture operation id; dedup is on this, never on orderId (ADR-0016)." },
+    { "name": "providerReference", "type": "string", "doc": "The payment provider's reference for the captured operation (for reconciliation)." },
+    { "name": "amount",            "type": "com.sajidriaz.orderplatform.common.Money" },
+    { "name": "capturedAt",        "type": { "type": "long", "logicalType": "timestamp-millis" } }
+  ]
+}

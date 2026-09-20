@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "CapturePayment",
+  "namespace": "com.sajidriaz.orderplatform.commands.payment",
+  "doc": "Command: capture previously authorized funds (the saga pivot). Idempotent via paymentOperationId.",
+  "fields": [
+    { "name": "orderId",          "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "paymentIntentId",  "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "paymentAttemptId", "type": { "type": "string", "logicalType": "uuid" } }
+  ]
+}

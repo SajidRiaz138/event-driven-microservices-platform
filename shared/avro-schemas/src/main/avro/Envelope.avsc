@@ -1,0 +1,19 @@
+{
+  "type": "record",
+  "name": "Envelope",
+  "namespace": "com.sajidriaz.orderplatform.events",
+  "doc": "Standard envelope wrapping every command and event on the platform. See ADR-0010.",
+  "fields": [
+    { "name": "messageId",     "type": { "type": "string", "logicalType": "uuid" }, "doc": "Unique message id; consumer idempotency/dedup key (ADR-0005). Used for both commands and events." },
+    { "name": "messageKind",   "type": { "type": "enum", "name": "MessageKind", "symbols": ["COMMAND", "EVENT"] }, "doc": "COMMAND (imperative, one handler, may be rejected) vs EVENT (fact, fan-out). See ADR-0010." },
+    { "name": "correlationId", "type": { "type": "string", "logicalType": "uuid" }, "doc": "Ties all messages of one business flow (one order) together." },
+    { "name": "causationId",   "type": ["null", { "type": "string", "logicalType": "uuid" }], "default": null, "doc": "Id of the message that directly caused this one." },
+    { "name": "occurredAt",    "type": { "type": "long", "logicalType": "timestamp-millis" }, "doc": "When the fact happened / command was issued (UTC)." },
+    { "name": "type",          "type": "string", "doc": "Fully-qualified message type, e.g. events.order.created or commands.payment.authorize." },
+    { "name": "schemaVersion", "type": "int", "default": 1, "doc": "Payload schema major version." },
+    { "name": "tenantId",      "type": "string", "default": "default", "doc": "Tenant scope; 'default' until multi-tenancy (ADR-0011)." },
+    { "name": "aggregateId",   "type": "string", "doc": "Aggregate id; used as the Kafka partition key for per-aggregate ordering." },
+    { "name": "traceparent",   "type": ["null", "string"], "default": null, "doc": "W3C trace context for end-to-end tracing (ADR-0013)." },
+    { "name": "payload",       "type": "bytes", "doc": "Serialized command/event-specific body (its own Avro schema)." }
+  ]
+}

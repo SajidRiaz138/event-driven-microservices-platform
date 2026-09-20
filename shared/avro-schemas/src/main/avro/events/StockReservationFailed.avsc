@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "StockReservationFailed",
+  "namespace": "com.sajidriaz.orderplatform.events.inventory",
+  "doc": "Fact: stock could not be reserved (insufficient available). A NORMAL saga outcome, never a DLQ case (ADR-0006).",
+  "fields": [
+    { "name": "orderId",     "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "failedSku",   "type": ["null", "string"], "default": null, "doc": "First SKU that could not be satisfied (no quantities leaked externally)." },
+    { "name": "failedAt",    "type": { "type": "long", "logicalType": "timestamp-millis" } }
+  ]
+}

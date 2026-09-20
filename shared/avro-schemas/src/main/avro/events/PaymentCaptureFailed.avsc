@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "PaymentCaptureFailed",
+  "namespace": "com.sajidriaz.orderplatform.events.payment",
+  "doc": "Fact: a capture attempt failed definitively (not UNKNOWN). Distinct from the reconciliation path (ADR-0016).",
+  "fields": [
+    { "name": "orderId",          "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "paymentIntentId",  "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "paymentAttemptId", "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "failedAt",         "type": { "type": "long", "logicalType": "timestamp-millis" } }
+  ]
+}

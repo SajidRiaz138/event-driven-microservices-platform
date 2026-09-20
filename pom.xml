@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.1.1</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.sajidriaz.orderplatform</groupId>
+    <artifactId>event-driven-microservices-platform</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>Event-Driven Microservices Platform</name>
+    <description>
+        Event-driven order platform (Spring Boot 4 + Java 21). Async saga orchestration,
+        transactional outbox, idempotent consumers, DLQ/retry, observability. See docs/.
+    </description>
+
+    <!--
+      Phase 1 modules only (ADR-0012). Shared contracts first, then the Phase 1 services.
+      Phase 2/3 modules (notification, audit, ai) are added when those phases begin.
+    -->
+    <modules>
+        <module>shared/avro-schemas</module>
+        <module>shared/common-lib</module>
+        <!-- Added incrementally as each module is built (Phase 1): -->
+        <module>services/order-service</module>
+        <!--
+        <module>services/payment-service</module>
+        <module>services/inventory-service</module>
+        <module>services/api-gateway</module>
+        auth-service (Phase 1) uses Keycloak (ADR-0018): it is a realm configuration +
+        thin resource-server config, not a heavy Java module, so it is wired in with the
+        gateway during the auth milestone rather than as a standalone reactor module.
+        -->
+    </modules>
+
+    <properties>
+        <java.version>21</java.version>
+        <maven.compiler.release>21</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Dependency versions managed centrally -->
+        <avro.version>1.12.0</avro.version>
+        <springdoc.version>2.7.0</springdoc.version>
+        <testcontainers.version>2.0.5</testcontainers.version>
+        <jacoco.version>0.8.12</jacoco.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Testcontainers BOM: real Postgres/Kafka in integration tests -->
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Kafka dependencies for event-driven services -->
+            <dependency>
+                <groupId>org.springframework.kafka</groupId>
+                <artifactId>spring-kafka</artifactId>
+                <version>3.2.4</version>
+            </dependency>
+            <!--
+              NOTE: no io.confluent:kafka-avro-serializer here. Services serialize the
+              Envelope (and Avro payloads inside it) to bytes in-process with the plain
+              Apache Avro API and transport them as raw byte[] over Kafka
+              (ByteArraySerializer/Deserializer). This keeps the build resolvable from
+              Maven Central only, with no dependency on the Confluent Maven repository.
+            -->
+            <!-- Shared contract modules -->
+            <dependency>
+                <groupId>com.sajidriaz.orderplatform</groupId>
+                <artifactId>common-lib</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.sajidriaz.orderplatform</groupId>
+                <artifactId>avro-schemas</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <!-- Avro code generation from shared/avro-schemas/*.avsc -->
+                <plugin>
+                    <groupId>org.apache.avro</groupId>
+                    <artifactId>avro-maven-plugin</artifactId>
+                    <version>${avro.version}</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+
+        <plugins>
+            <!--
+              UNIT tests: Surefire runs *Test in the `test` phase (fast, no external deps).
+                  ./mvnw test
+              INTEGRATION tests: Failsafe runs *IT in the `integration-test`/`verify` phase
+              (Testcontainers-backed Postgres/Kafka).
+                  ./mvnw verify
+              This separation lets CI run fast unit tests on every push and gate the slower
+              integration tests independently. Versions are inherited from the Spring Boot parent.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <includes>
+                        <include>**/*Test.java</include>
+                    </includes>
+                    <excludes>
+                        <exclude>**/*IT.java</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <includes>
+                        <include>**/*IT.java</include>
+                    </includes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>integration-tests</id>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Code coverage (reports on `verify`); pairs with the test split above. -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals><goal>prepare-agent</goal></goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>verify</phase>
+                        <goals><goal>report</goal></goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

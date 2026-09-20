@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "PaymentRefunded",
+  "namespace": "com.sajidriaz.orderplatform.events.payment",
+  "doc": "Fact: a captured payment was refunded (post-pivot compensation completed).",
+  "fields": [
+    { "name": "orderId",           "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "paymentIntentId",   "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "paymentOperationId","type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "amount",            "type": "com.sajidriaz.orderplatform.common.Money" },
+    { "name": "refundedAt",        "type": { "type": "long", "logicalType": "timestamp-millis" } }
+  ]
+}

@@ -1,0 +1,99 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: order-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/orderdb
+    username: appuser
+    password: ${POSTGRES_APP_PASSWORD:changeme-dev-only}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      # Envelopes (and the Avro payloads they carry) are serialized to bytes
+      # in-process; Kafka transports opaque byte[] only. See ADR-0010's note on the
+      # envelope payload being `bytes`, and the order-service pom for why this avoids
+      # a dependency on the Confluent schema-registry serializer/repository.
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.ByteArraySerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+    consumer:
+      group-id: order-service
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
+      enable-auto-commit: false
+      auto-offset-reset: earliest
+    listener:
+      # Manual ack: the offset is committed only after the business change +
+      # processed_message dedup row are committed in the same DB transaction
+      # (ADR-0005, ADR-0014).
+      ack-mode: manual
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+order-platform:
+  outbox:
+    relay:
+      # Outbox relay poll interval (ADR-0004). SELECT ... FOR UPDATE SKIP LOCKED lets
+      # multiple replicas drain the outbox concurrently without double-publishing.
+      fixed-delay-ms: 500
+      batch-size: 50
+  saga:
+    # TTL carried on the ReserveStock command so inventory can expire an abandoned
+    # reservation on its own (ADR-0015). Now actually read by SagaOrchestrator via
+    # SagaConfig — it used to be shadowed by a hard-coded Java constant.
+    reservation-ttl-seconds: 900
+    step-timeout:
+      # Per-step reply budgets driving saga_instance.deadline (ADR-0003). NOTE: no ADR or
+      # NFR pins these numbers — NFR-and-SLO only sets an end-to-end p95 < 3s target — so
+      # they are a deliberate implementation choice, set well above the p95 so that a
+      # merely slow participant is not mistaken for a dead one.
+      stock-reservation-seconds: 30
+      payment-authorization-seconds: 30
+      # Breaching THIS budget never cancels the order: an unknown capture outcome is
+      # neither success nor failure (ADR-0003). See SagaOrchestrator.onStepTimeout.
+      payment-capture-seconds: 30
+    timeout-sweep:
+      fixed-delay-ms: 1000
+      batch-size: 50
+  security:
+    # TODO(ADR-0009): auth-service/gateway are not built yet. In production the
+    # customer id MUST be derived from a validated JWT `sub` claim, verified against
+    # the issuer's JWKS by this service's own resource-server config (per-service JWT
+    # validation, ADR-0009) — never trusted from a header. Until then, this dev-only
+    # header stand-in lets the saga be exercised end to end.
+    dev-user-id-header: X-User-Id
+
+logging:
+  level:
+    com.sajidriaz.orderplatform: DEBUG
+    org.springframework.kafka: INFO
+    org.apache.kafka: WARN
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always

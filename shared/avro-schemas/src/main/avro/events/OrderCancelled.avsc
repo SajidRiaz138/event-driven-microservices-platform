@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "OrderCancelled",
+  "namespace": "com.sajidriaz.orderplatform.events.order",
+  "doc": "Fact: the order saga failed and compensation completed; the order is cancelled.",
+  "fields": [
+    { "name": "orderId", "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "reason",  "type": { "type": "enum", "name": "CancellationReason",
+        "symbols": ["INSUFFICIENT_STOCK", "PAYMENT_DECLINED", "PAYMENT_CAPTURE_FAILED", "ORDER_TIMEOUT", "RECONCILIATION_REQUIRED"] },
+      "doc": "Why the order was cancelled." },
+    { "name": "cancelledAt", "type": { "type": "long", "logicalType": "timestamp-millis" } }
+  ]
+}

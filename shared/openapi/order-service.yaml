@@ -1,0 +1,340 @@
+openapi: 3.1.0
+info:
+  title: Order Platform API
+  version: 1.0.0
+  description: >
+    Public REST API for the Event-Driven Order Platform (Phase 1). Order placement is
+    asynchronous (202 + status URL); the saga runs behind the scenes. Customer identity
+    is derived from the JWT (never sent by the client) and prices are server-authoritative.
+    Authentication/token issuance is a separate concern (auth-service) and is intentionally
+    NOT part of this document — see docs/api/REST-API-GUIDE.md §6. See also
+    docs/REQUIREMENTS.md and the ADRs.
+  license:
+    name: MIT
+servers:
+  - url: https://api.platform.local
+    description: Gateway (edge)
+
+tags:
+  - name: Orders
+    description: Place and track orders
+
+paths:
+  /api/v1/orders:
+    post:
+      tags: [Orders]
+      summary: Place an order
+      description: >
+        Requires a valid JWT containing the `orders:write` scope (or `orders:write:any`
+        for audited admin-on-behalf-of). Customer identity is taken from the JWT `sub`.
+        Business outcomes such as insufficient stock or payment decline are NOT returned
+        here — the request returns 202 and the outcome appears on the order status
+        resource as CONFIRMED or CANCELLED.
+      operationId: placeOrder
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/Traceparent'
+        - $ref: '#/components/parameters/CorrelationIdRequest'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PlaceOrderRequest' }
+            examples:
+              validOrder:
+                value:
+                  paymentInstrumentId: "pi_9a3c00000000"
+                  lines:
+                    - { sku: SKU-1001, quantity: 2 }
+                  currency: USD
+      responses:
+        '202':
+          description: Order request accepted and valid; processing asynchronously.
+          headers:
+            Location:
+              description: Status resource for the accepted order (relative reference).
+              schema: { type: string, format: uri-reference }
+            X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+            Cache-Control:
+              schema: { type: string }
+              example: no-store
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderAccepted' }
+              examples:
+                accepted:
+                  value: { orderId: "8b7f2c1e-0000-4a00-8000-000000000000", status: PENDING }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/v1/orders/{orderId}:
+    get:
+      tags: [Orders]
+      summary: Get order status
+      description: Requires a valid JWT with the `orders:read` scope. Callers may read only their own orders.
+      operationId: getOrder
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/Traceparent'
+        - $ref: '#/components/parameters/CorrelationIdRequest'
+      responses:
+        '200':
+          description: Current order state.
+          headers:
+            X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+            Cache-Control:
+              schema: { type: string }
+              example: no-store
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+              examples:
+                pending:
+                  value:
+                    orderId: "8b7f2c1e-0000-4a00-8000-000000000000"
+                    status: PENDING
+                    lines:
+                      - sku: SKU-1001
+                        quantity: 2
+                        unitPrice: { minorUnits: 1999, currency: USD }
+                        lineTotal: { minorUnits: 3998, currency: USD }
+                    totalAmount: { minorUnits: 3998, currency: USD }
+                    reason: null
+                    createdAt: "2026-09-19T18:30:00Z"
+                    updatedAt: "2026-09-19T18:30:00Z"
+                cancelled:
+                  value:
+                    orderId: "8b7f2c1e-0000-4a00-8000-000000000000"
+                    status: CANCELLED
+                    lines:
+                      - sku: SKU-1001
+                        quantity: 2
+                        unitPrice: { minorUnits: 1999, currency: USD }
+                        lineTotal: { minorUnits: 3998, currency: USD }
+                    totalAmount: { minorUnits: 3998, currency: USD }
+                    reason: PAYMENT_DECLINED
+                    createdAt: "2026-09-19T18:30:00Z"
+                    updatedAt: "2026-09-19T18:30:02Z"
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalServerError' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        JWT bearer token. Required scopes are documented per operation (the platform's
+        auth engine is being finalised; scopes are enforced by the resource server).
+        Scopes in use: orders:read, orders:write, orders:write:any.
+
+  headers:
+    CorrelationId:
+      description: Business/support correlation id; present on every response, matches the Problem.correlationId, joins to logs/traces (ADR-0013).
+      schema: { type: string, format: uuid }
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: >
+        Client-generated UUID for this business mutation. Scope is customer (JWT sub) +
+        HTTP method + path + key. Same key + same request hash replays the original
+        response (including the original 202, even after the order progresses); same key
+        + different request hash returns 409; concurrent identical requests produce one
+        order. The idempotency record and the order are written in one DB transaction.
+        Keys retained >= 24h. Applies to business mutations only (not the token endpoint).
+      schema: { type: string, format: uuid }
+    Traceparent:
+      name: traceparent
+      in: header
+      required: false
+      description: W3C Trace Context header; if absent, the edge generates one.
+      schema: { type: string, minLength: 3 }
+    CorrelationIdRequest:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      description: Optional client-supplied business correlation id; validated and propagated, else generated.
+      schema: { type: string, format: uuid }
+
+  schemas:
+    Currency:
+      type: string
+      pattern: '^[A-Z]{3}$'
+      minLength: 3
+      maxLength: 3
+      description: ISO-4217 currency code.
+      example: USD
+    Money:
+      type: object
+      additionalProperties: false
+      required: [minorUnits, currency]
+      properties:
+        minorUnits: { type: integer, format: int64, minimum: 0, description: "Amount in minor units (e.g. cents). Never a float." }
+        currency: { $ref: '#/components/schemas/Currency' }
+    OrderLineRequest:
+      type: object
+      additionalProperties: false
+      required: [sku, quantity]
+      properties:
+        sku: { type: string, minLength: 1, maxLength: 64, pattern: '^[A-Za-z0-9._-]+$' }
+        quantity: { type: integer, format: int32, minimum: 1, maximum: 100 }
+    PlaceOrderRequest:
+      type: object
+      additionalProperties: false
+      required: [lines, currency, paymentInstrumentId]
+      description: >
+        Customer identity is derived from the JWT (sub), never sent by the client.
+        Prices are resolved server-side (catalog or server-issued quoteId); clients
+        never send prices. The payment instrument is an opaque stored reference, never
+        raw card data.
+      properties:
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items: { $ref: '#/components/schemas/OrderLineRequest' }
+        currency: { $ref: '#/components/schemas/Currency' }
+        paymentInstrumentId: { type: string, minLength: 1, maxLength: 128, description: "Opaque reference to a stored payment instrument; resolved server-side to a provider token." }
+        quoteId: { type: string, minLength: 1, maxLength: 128, description: "Optional server-issued price quote id." }
+    OrderLine:
+      type: object
+      additionalProperties: false
+      required: [sku, quantity, unitPrice, lineTotal]
+      description: Persisted line with the server-authoritative price snapshot.
+      properties:
+        sku: { type: string, minLength: 1, maxLength: 64 }
+        quantity: { type: integer, format: int32, minimum: 1 }
+        unitPrice: { $ref: '#/components/schemas/Money' }
+        lineTotal: { $ref: '#/components/schemas/Money' }
+    OrderAccepted:
+      type: object
+      additionalProperties: false
+      required: [orderId, status]
+      properties:
+        orderId: { type: string, format: uuid }
+        status: { type: string, enum: [PENDING] }
+    Order:
+      type: object
+      additionalProperties: false
+      required: [orderId, status, lines, totalAmount, createdAt, updatedAt]
+      description: >
+        Public order view. status is PENDING|CONFIRMED|CANCELLED (the internal saga has
+        finer states incl. REQUIRES_RECONCILIATION). Contract rule (validated by tests):
+        reason is null unless status == CANCELLED, in which case it is non-null.
+      properties:
+        orderId: { type: string, format: uuid }
+        status: { type: string, enum: [PENDING, CONFIRMED, CANCELLED] }
+        reason:
+          type: [string, "null"]
+          enum: [INSUFFICIENT_STOCK, PAYMENT_DECLINED, PAYMENT_CAPTURE_FAILED, ORDER_TIMEOUT, RECONCILIATION_REQUIRED, null]
+          description: "Set (non-null) only when status == CANCELLED; null otherwise."
+        lines:
+          type: array
+          items: { $ref: '#/components/schemas/OrderLine' }
+        totalAmount: { $ref: '#/components/schemas/Money' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    FieldError:
+      type: object
+      additionalProperties: false
+      required: [field, issue]
+      properties:
+        field: { type: string }
+        issue: { type: string }
+    Problem:
+      description: >
+        RFC 9457 problem detail. Platform convention is STRICTER than the RFC:
+        correlationId is always present.
+      type: object
+      additionalProperties: false
+      required: [type, title, status, instance, correlationId]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer, minimum: 400, maximum: 599 }
+        detail: { type: string, description: "Human-readable; MUST NOT leak operational data (stock levels, SQL, stack traces, credentials)." }
+        instance: { type: string, format: uri-reference }
+        correlationId: { type: string, format: uuid }
+        errors:
+          type: array
+          items: { $ref: '#/components/schemas/FieldError' }
+
+  responses:
+    BadRequest:
+      description: Malformed request.
+      headers: { X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' } }
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    Unauthorized:
+      description: Missing, expired, or invalid token.
+      headers: { X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' } }
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    Forbidden:
+      description: Valid token, insufficient scope.
+      headers: { X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' } }
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    NotFound:
+      description: Resource not found, or not owned by the caller (existence not revealed).
+      headers: { X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' } }
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    Conflict:
+      description: >
+        State conflict — e.g. an Idempotency-Key reused with a different request body,
+        or an operation invalid for the order's current state.
+      headers: { X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' } }
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    UnprocessableEntity:
+      description: >
+        The request is syntactically valid but fails SYNCHRONOUS validation (invalid
+        quantities, malformed currency, invalid/unknown SKU or quote, or Idempotency-Key
+        reuse with a different request body). ASYNCHRONOUS failures such as insufficient
+        stock or payment decline are NOT returned here — they appear on the order status
+        resource as a CANCELLED reason.
+      headers: { X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' } }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            validation:
+              value:
+                type: "https://docs.platform.local/problems/validation-failed"
+                title: "Validation failed"
+                status: 422
+                detail: "One or more order lines are invalid."
+                instance: "/api/v1/orders"
+                correlationId: "7b1e2f00-0000-4a00-8000-000000000000"
+                errors:
+                  - { field: "lines[0].quantity", issue: "must be >= 1" }
+    TooManyRequests:
+      description: Rate limit exceeded.
+      headers:
+        Retry-After: { schema: { type: integer }, description: "Seconds to wait." }
+        X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    ServiceUnavailable:
+      description: The order request could not be persisted / load being shed.
+      headers:
+        Retry-After: { schema: { type: integer }, description: "Seconds to wait." }
+        X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' }
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    InternalServerError:
+      description: Unexpected internal server error. Body never exposes stack traces, SQL, provider credentials, or internal detail.
+      headers: { X-Correlation-Id: { $ref: '#/components/headers/CorrelationId' } }
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }

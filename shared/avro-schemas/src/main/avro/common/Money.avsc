@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "Money",
+  "namespace": "com.sajidriaz.orderplatform.common",
+  "doc": "Money as integer minor units + ISO-4217 currency. Never a floating-point type (NFR §7).",
+  "fields": [
+    { "name": "minorUnits", "type": "long", "doc": "Amount in the currency's minor unit (e.g. cents). 12.34 USD = 1234." },
+    { "name": "currency",   "type": "string", "doc": "ISO-4217 code, e.g. USD, EUR, SEK." }
+  ]
+}

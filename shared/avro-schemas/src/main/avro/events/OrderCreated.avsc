@@ -1,0 +1,28 @@
+{
+  "type": "record",
+  "name": "OrderCreated",
+  "namespace": "com.sajidriaz.orderplatform.events.order",
+  "doc": "Fact: an order was accepted and is PENDING. Emitted by order-service; starts the saga.",
+  "fields": [
+    { "name": "orderId",    "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "customerId", "type": { "type": "string", "logicalType": "uuid" } },
+    {
+      "name": "lines",
+      "doc": "Order lines: which SKU and how many.",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "OrderLine",
+          "fields": [
+            { "name": "sku",      "type": "string" },
+            { "name": "quantity", "type": "int" },
+            { "name": "unitPrice", "type": "com.sajidriaz.orderplatform.common.Money" }
+          ]
+        }
+      }
+    },
+    { "name": "totalAmount", "type": "com.sajidriaz.orderplatform.common.Money" },
+    { "name": "createdAt",   "type": { "type": "long", "logicalType": "timestamp-millis" } }
+  ]
+}

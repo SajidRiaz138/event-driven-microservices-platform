@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "ReleaseStock",
+  "namespace": "com.sajidriaz.orderplatform.commands.inventory",
+  "doc": "Command: release a stock reservation (compensation, or on expiry). Idempotent.",
+  "fields": [
+    { "name": "orderId",       "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "reservationId", "type": { "type": "string", "logicalType": "uuid" } }
+  ]
+}

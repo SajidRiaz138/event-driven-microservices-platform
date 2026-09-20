@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "StockReserved",
+  "namespace": "com.sajidriaz.orderplatform.events.inventory",
+  "doc": "Fact: stock was reserved for an order (reply to ReserveStock).",
+  "fields": [
+    { "name": "orderId",       "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "reservationId", "type": { "type": "string", "logicalType": "uuid" } },
+    { "name": "reservedAt",    "type": { "type": "long", "logicalType": "timestamp-millis" } },
+    { "name": "expiresAt",     "type": { "type": "long", "logicalType": "timestamp-millis" }, "doc": "Reservation TTL expiry." }
+  ]
+}
