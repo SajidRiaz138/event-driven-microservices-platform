@@ -47,6 +47,18 @@ public class SagaInstanceEntity {
     @Column(name = "correlation_id", nullable = false)
     private UUID correlationId;
 
+    /** The reservation id issued to inventory (ReserveStock), reused by ReleaseStock. */
+    @Column(name = "reservation_id")
+    private UUID reservationId;
+
+    /** The payment intent id issued to payment (AuthorizePayment), reused by Capture/Refund. */
+    @Column(name = "payment_intent_id")
+    private UUID paymentIntentId;
+
+    /** The payment attempt id issued to payment (AuthorizePayment), reused by Capture. */
+    @Column(name = "payment_attempt_id")
+    private UUID paymentAttemptId;
+
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
@@ -106,6 +118,30 @@ public class SagaInstanceEntity {
 
     public UUID getCorrelationId() {
         return correlationId;
+    }
+
+    public UUID getReservationId() {
+        return reservationId;
+    }
+
+    public void setReservationId(UUID reservationId) {
+        this.reservationId = reservationId;
+    }
+
+    public UUID getPaymentIntentId() {
+        return paymentIntentId;
+    }
+
+    public void setPaymentIntentId(UUID paymentIntentId) {
+        this.paymentIntentId = paymentIntentId;
+    }
+
+    public UUID getPaymentAttemptId() {
+        return paymentAttemptId;
+    }
+
+    public void setPaymentAttemptId(UUID paymentAttemptId) {
+        this.paymentAttemptId = paymentAttemptId;
     }
 
     public Instant getUpdatedAt() {

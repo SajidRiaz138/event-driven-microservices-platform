@@ -81,13 +81,14 @@ public class SagaOrchestrator {
      */
     @Transactional
     public void issueReserveStock(OrderEntity order, UUID correlationId) {
+        UUID reservationId = UUID.randomUUID();
         List<ReserveLine> lines = order.getLines().stream()
                 .map(l -> ReserveLine.newBuilder().setSku(l.getSku()).setQuantity(l.getQuantity()).build())
                 .toList();
 
         ReserveStock command = ReserveStock.newBuilder()
                 .setOrderId(order.getId())
-                .setReservationId(UUID.randomUUID())
+                .setReservationId(reservationId)
                 .setLines(lines)
                 .setTtlSeconds(timeouts.reservationTtlSeconds())
                 .build();
@@ -96,6 +97,7 @@ public class SagaOrchestrator {
                 Topics.COMMANDS_INVENTORY_RESERVE, correlationId, null, order.getId(), command);
 
         SagaInstanceEntity saga = requireSaga(order.getId());
+        saga.setReservationId(reservationId);
         saga.setCurrentStep(SagaStep.AWAITING_STOCK_RESERVATION);
         saga.setDeadline(Instant.now().plus(timeouts.awaitStockReservation()));
     }
@@ -119,11 +121,16 @@ public class SagaOrchestrator {
         saga.setStatus(SagaStatus.STOCK_RESERVED);
         OrderEntity order = requireOrder(orderId);
 
+        UUID paymentIntentId = UUID.randomUUID();
+        UUID paymentAttemptId = UUID.randomUUID();
+        saga.setPaymentIntentId(paymentIntentId);
+        saga.setPaymentAttemptId(paymentAttemptId);
+
         AuthorizePayment command = AuthorizePayment.newBuilder()
                 .setOrderId(orderId)
                 .setCustomerId(toUuidOrDerived(order.getCustomerId()))
-                .setPaymentIntentId(UUID.randomUUID())
-                .setPaymentAttemptId(UUID.randomUUID())
+                .setPaymentIntentId(paymentIntentId)
+                .setPaymentAttemptId(paymentAttemptId)
                 .setAmount(toAvroMoney(order))
                 // TODO(ADR-0009 / payment integration): resolve the opaque
                 // paymentInstrumentId to a real provider token server-side once
@@ -174,8 +181,8 @@ public class SagaOrchestrator {
 
         CapturePayment command = CapturePayment.newBuilder()
                 .setOrderId(orderId)
-                .setPaymentIntentId(UUID.randomUUID())
-                .setPaymentAttemptId(UUID.randomUUID())
+                .setPaymentIntentId(saga.getPaymentIntentId())
+                .setPaymentAttemptId(saga.getPaymentAttemptId())
                 .build();
 
         outboxWriter.append(MessageKind.COMMAND, "commands.payment.capture",
@@ -354,7 +361,7 @@ public class SagaOrchestrator {
         if (releaseStock) {
             ReleaseStock command = ReleaseStock.newBuilder()
                     .setOrderId(orderId)
-                    .setReservationId(UUID.randomUUID())
+                    .setReservationId(saga.getReservationId())
                     .build();
             outboxWriter.append(MessageKind.COMMAND, "commands.inventory.release",
                     Topics.COMMANDS_INVENTORY_RELEASE, saga.getCorrelationId(), causationId, orderId, command);

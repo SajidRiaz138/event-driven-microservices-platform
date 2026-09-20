@@ -64,6 +64,12 @@ class SagaOrchestratorTest {
         orderId = order.getId();
 
         saga = new SagaInstanceEntity(orderId, UUID.randomUUID());
+        // In the real flow these ids are issued+persisted before STOCK_RESERVED /
+        // PAYMENT_AUTHORIZED; the compensation and capture steps reuse them (see
+        // V2 migration + SagaOrchestrator). Set them so fixtures match reality.
+        saga.setReservationId(UUID.randomUUID());
+        saga.setPaymentIntentId(UUID.randomUUID());
+        saga.setPaymentAttemptId(UUID.randomUUID());
     }
 
     @Test
