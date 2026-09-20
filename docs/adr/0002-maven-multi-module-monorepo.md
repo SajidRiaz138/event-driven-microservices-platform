@@ -16,9 +16,10 @@ Use a **single Git repository (monorepo)** with a **Maven multi-module reactor**
 - A parent `pom.xml` owns the Spring Boot 4.1.x BOM, Java 21 compiler settings, and
   centralised dependency/plugin management.
 - Each service and each shared library is a Maven module.
-- Shared contracts (`shared/common-lib`, `shared/avro-schemas`, `shared/proto`,
-  `shared/openapi`) are modules that services depend on, guaranteeing one source of
-  truth for events and DTOs.
+- Shared contracts (`shared/common-lib`, `shared/avro-schemas`, `shared/openapi`) are
+  modules that services depend on, guaranteeing one source of truth for events and DTOs.
+  (A `shared/proto` module for gRPC is a documented future path — Phase 1 uses REST + Avro
+  over Kafka only.)
 
 We choose **Maven over Gradle** here deliberately: Maven's declarative model and
 ubiquity in enterprise Java make the build immediately readable to any reviewer,
