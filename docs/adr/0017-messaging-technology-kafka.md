@@ -52,3 +52,14 @@ registry. It must be an explicit decision, not an implicit assumption.
   mitigated by the one-command local stack (ADR to follow for the demo) and by keeping
   Phase 1 to a single-broker dev setup.
 - **Related:** ADR-0006, ADR-0010, ADR-0014.
+
+## Phase 1 implementation note (schema registry)
+
+Phase 1 does **not** deploy a schema registry. Services serialize the Avro `Envelope`
+(and the payload inside it) to `byte[]` in-process with the plain Apache Avro API and
+transport them with Kafka's `ByteArraySerializer`/`Deserializer`. This keeps the local
+stack Maven-Central-only (no Confluent images/dependencies) and simpler to run, while the
+schema contracts still live in `shared/avro-schemas` and are shared by producers and
+consumers at compile time. A schema registry with enforced BACKWARD compatibility (as
+described above and in ADR-0010) is the **production/Phase-2+ path** for runtime schema
+governance and cross-team evolution — it is a deliberate deferral, not an oversight.

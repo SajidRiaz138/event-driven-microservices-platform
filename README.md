@@ -4,8 +4,6 @@
 > **asynchronous saga**, **transactional outbox**, **idempotent** consumers, **DLQ/retry**,
 > and **end-to-end observability** — built on **Spring Boot 4** and **Java 21**.
 
-**Note:** This repository is currently in **Phase 1 development** - a complete architectural foundation with documentation and shared contracts, but service implementations are under active development. See [BUILD-LOG.md](docs/BUILD-LOG.md) for current status.
-
 This repository is a portfolio flagship: it favours **depth and correctness** over breadth.
 Every significant decision is captured as an [ADR](docs/adr/README.md), every requirement
 is traceable to a scenario and a test, and the failure paths (compensation, redelivery,
@@ -47,7 +45,7 @@ See the [C4 diagrams](docs/diagrams/c4-context-and-containers.md), the
 | Language | Java 21 (virtual threads, records, sealed types) |
 | Framework | Spring Boot 4.1.x |
 | Build | Maven multi-module ([ADR-0002](docs/adr/0002-maven-multi-module-monorepo.md)) |
-| Messaging | Apache Kafka + Schema Registry (Avro) ([ADR-0017](docs/adr/0017-messaging-technology-kafka.md)) |
+| Messaging | Apache Kafka; Avro messages ([ADR-0017](docs/adr/0017-messaging-technology-kafka.md)) |
 | Persistence | PostgreSQL + Flyway; Redis (cache) ([ADR-0007](docs/adr/0007-polyglot-persistence-and-dev-simplification.md)) |
 | APIs | REST (public) + Kafka (async); gRPC where justified |
 | Deploy | Docker, Helm ([ADR-0008](docs/adr/0008-helm-primary-kustomize-deferred.md)), Kubernetes |
@@ -55,26 +53,28 @@ See the [C4 diagrams](docs/diagrams/c4-context-and-containers.md), the
 
 ## Run it
 
-> Prerequisites: Java 21 (build), Docker + Make (local stack).
-
-**Available now** (Phase 1 build in progress):
+> Prerequisites: Java 21, Docker, Make.
 
 ```bash
-./mvnw verify        # build all modules + run unit and integration tests
-make unit-test       # fast unit tests only
+cp .env.example .env      # dev defaults; no real secrets
+make up                   # build + start the full stack (8 containers) and wait until healthy
+make demo                 # scripted end-to-end: a confirmed order + a payment-decline compensation
+make down                 # tear down
 ```
 
-**Coming soon** (compose stack + scripts are being developed in 
-step 11 of [BUILD-LOG](docs/BUILD-LOG.md)):
+`make up` builds the four services and starts them alongside **Keycloak, PostgreSQL,
+Kafka and Redis** (8 containers, with readiness health checks). `make demo` then, through
+the API gateway with a real Keycloak-issued JWT:
 
-```bash
-cp .env.example .env
-make up              # start Postgres, Kafka, Schema Registry, Redis + services
-make demo            # scripted: successful order + a payment-decline compensation
-make down
-```
+1. places an order → polls until it reaches **`CONFIRMED`** (stock reserved, payment
+   authorized then captured), and
+2. places an order whose payment is declined → polls until the saga **compensates**
+   (reservation released) and the order reaches **`CANCELLED` / `PAYMENT_DECLINED`**.
 
-**Note:** The `make up` and `make demo` targets are under development and not yet functional. However, you can manually run the demo using the scripts in the `scripts/` directory. See [BUILD-LOG.md](docs/BUILD-LOG.md) for current implementation status.
+Each scenario prints its `correlationId` so you can follow the saga across every service
+in the logs. `make smoke` is a fast liveness check; `make token` fetches a demo JWT; see
+`make help` for all targets. Build-only, no Docker: `./mvnw verify` (runs unit +
+Testcontainers integration tests).
 
 ### Developing in IntelliJ IDEA
 
@@ -110,10 +110,13 @@ editor.
 
 ## Status
 
-**Phase 1 in progress** — a complete, runnable vertical slice
-(gateway + auth + order + payment + inventory). Phase 2 (notifications) and Phase 3
-(audit, AI) are documented in the [roadmap](docs/ROADMAP.md) and built once Phase 1 is
-polished. See [ADR-0012](docs/adr/0012-phased-delivery.md).
+**Phase 1 is complete and runs end-to-end** — a full vertical slice of five services
+(api-gateway, auth via Keycloak, order, payment, inventory) that builds green, passes
+its unit + Testcontainers integration suite, and demonstrates the order saga (confirmation
+*and* compensation) live via `make demo`. Phase 2 (notifications) and Phase 3 (audit, AI)
+are documented in the [roadmap](docs/ROADMAP.md) as deliberate, deferred work. See
+[ADR-0012](docs/adr/0012-phased-delivery.md) for the phasing rationale and
+[BUILD-LOG](docs/BUILD-LOG.md) for the detailed status.
 
 ## License
 
