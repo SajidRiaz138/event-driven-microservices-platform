@@ -56,7 +56,7 @@ public class OrderController {
     public ResponseEntity<String> placeOrder(@Valid @RequestBody PlaceOrderRequest request,
                                               @RequestHeader("Idempotency-Key") String idempotencyKey,
                                               HttpServletRequest servletRequest) {
-        String customerId = requireAuthenticatedCustomer(servletRequest);
+        String customerId = requireAuthenticatedCustomer();
         String path = servletRequest.getRequestURI();
         String requestHash = requestHasher.hash(request);
 
@@ -74,7 +74,7 @@ public class OrderController {
 
     @GetMapping("/{orderId}")
     public ResponseEntity<OrderResponse> getOrder(@PathVariable UUID orderId, HttpServletRequest servletRequest) {
-        String customerId = requireAuthenticatedCustomer(servletRequest);
+        String customerId = requireAuthenticatedCustomer();
         OrderResponse response = orderQueryService.getOwnedOrder(orderId, customerId);
         return ResponseEntity.ok()
                 .cacheControl(org.springframework.http.CacheControl.noStore())
@@ -91,8 +91,8 @@ public class OrderController {
                 .body(json);
     }
 
-    private String requireAuthenticatedCustomer(HttpServletRequest servletRequest) {
-        String customerId = callerIdentityResolver.resolve(servletRequest);
+    private String requireAuthenticatedCustomer() {
+        String customerId = callerIdentityResolver.resolve();
         if (customerId == null) {
             throw new UnauthenticatedException("Missing caller identity.");
         }

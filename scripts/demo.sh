@@ -62,6 +62,16 @@ do
 done
 echo "✅ Redis is ready"
 
+# Wait for Keycloak (auth-service, ADR-0018). Polls the realm's discovery document rather
+# than the port: the realm import runs during startup, so a listening port does not yet mean
+# a token can be issued.
+ISSUER_URI="${JWT_ISSUER_URI:-http://localhost:8180/realms/order-platform}"
+until curl -f "${ISSUER_URI}/.well-known/openid-configuration" > /dev/null 2>&1
+do
+    sleep 2
+done
+echo "✅ Keycloak is ready (realm order-platform imported)"
+
 echo "🎉 All infrastructure services are ready!"
 
 # Build the order service
@@ -92,13 +102,15 @@ echo "============================"
 
 # Demo 1: Create an order
 echo "1️⃣ Creating a sample order..."
-# NOTE: identity comes from the dev-only X-User-Id header (TODO ADR-0009: a real JWT
-# once auth-service/gateway exist); prices are resolved server-side — the client sends
-# only sku + quantity, never a price (REST-API-GUIDE §1).
+# Identity comes from the validated JWT `sub` claim (ADR-0009) — order-service verifies the
+# token against Keycloak's JWKS itself; no header carries the caller's identity. Prices are
+# resolved server-side: the client sends only sku + quantity, never a price (REST-API-GUIDE §1).
+ACCESS_TOKEN=$(./scripts/get-token.sh)
+echo "🔑 Obtained an access token for ${DEMO_USERNAME:-demo-customer}"
 IDEMPOTENCY_KEY=$(uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid)
 ORDER_RESPONSE=$(curl -s -i -X POST http://localhost:8080/api/v1/orders \
     -H "Content-Type: application/json" \
-    -H "X-User-Id: customer-123" \
+    -H "Authorization: Bearer $ACCESS_TOKEN" \
     -H "Idempotency-Key: $IDEMPOTENCY_KEY" \
     -d '{
         "paymentInstrumentId": "pi_demo_0001",
@@ -116,12 +128,26 @@ if [ -n "$LOCATION" ]; then
     ORDER_ID=$(basename "$LOCATION")
     echo "📋 Created order with ID: $ORDER_ID"
 
-    # Retrieve the order (same caller identity — ownership is enforced, S-15)
+    # Retrieve the order with the same token — ownership is enforced against the token's
+    # subject, so another customer's token gets 404 here, never 403 (S-15).
     echo "2️⃣ Retrieving the created order..."
-    GET_RESPONSE=$(curl -s -X GET "http://localhost:8080/api/v1/orders/$ORDER_ID" -H "X-User-Id: customer-123")
+    GET_RESPONSE=$(curl -s -X GET "http://localhost:8080/api/v1/orders/$ORDER_ID" \
+        -H "Authorization: Bearer $ACCESS_TOKEN")
     echo "✅ Order retrieved successfully"
     echo "📄 Order details:"
     echo $GET_RESPONSE | jq .
+
+    # Ownership check, made visible: a different customer's token must not see this order.
+    echo "3️⃣ Verifying cross-customer isolation (expecting 404)..."
+    OTHER_TOKEN=$(./scripts/get-token.sh other-customer other-password)
+    OTHER_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+        -X GET "http://localhost:8080/api/v1/orders/$ORDER_ID" \
+        -H "Authorization: Bearer $OTHER_TOKEN")
+    if [ "$OTHER_STATUS" -eq 404 ]; then
+        echo "✅ Another customer gets 404 (existence is not revealed)"
+    else
+        echo "❌ Expected 404 for a different customer, got HTTP $OTHER_STATUS"
+    fi
 else
     echo "⚠️  Could not extract order ID from response"
 fi

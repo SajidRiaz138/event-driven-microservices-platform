@@ -50,6 +50,17 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  # OAuth2 resource server (ADR-0009, ADR-0018). The issuer is Keycloak's realm URL; the
+  # JWKS endpoint is derived from it by Keycloak convention and can be overridden on its own
+  # for deployments that front Keycloak differently. `sub` from a token validated here is the
+  # customer id — no header is trusted for identity.
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${JWT_ISSUER_URI:http://localhost:8180/realms/order-platform}
+          jwk-set-uri: ${JWT_JWKS_URI:${JWT_ISSUER_URI:http://localhost:8180/realms/order-platform}/protocol/openid-connect/certs}
+
 order-platform:
   outbox:
     relay:
@@ -76,12 +87,12 @@ order-platform:
       fixed-delay-ms: 1000
       batch-size: 50
   security:
-    # TODO(ADR-0009): auth-service/gateway are not built yet. In production the
-    # customer id MUST be derived from a validated JWT `sub` claim, verified against
-    # the issuer's JWKS by this service's own resource-server config (per-service JWT
-    # validation, ADR-0009) — never trusted from a header. Until then, this dev-only
-    # header stand-in lets the saga be exercised end to end.
-    dev-user-id-header: X-User-Id
+    # Audience this service requires in the `aud` claim (ADR-0009). Kept as a platform
+    # property rather than spring.security.oauth2.resourceserver.jwt.audiences because the
+    # decoder is built explicitly in SecurityConfig: the audience check is the one Boot's
+    # auto-configured decoder would not perform, so it is wired by hand and on purpose.
+    jwt:
+      audience: ${JWT_AUDIENCE:order-platform}
 
 logging:
   level:

@@ -65,11 +65,15 @@ public class OrderEventFactory {
     }
 
     /**
-     * {@code OrderCreated.customerId} is typed as a UUID in the Avro schema, but the
-     * dev-only caller-identity stand-in (X-User-Id, ADR-0009 TODO) may not be a UUID.
-     * We derive a stable UUID (v3, name-based) so the event schema is honoured without
-     * requiring every dev-mode caller id to already be a UUID; a real JWT `sub` will
-     * commonly be a UUID that this collapses to itself only if literally parseable.
+     * {@code OrderCreated.customerId} is typed as a UUID in the Avro schema. A Keycloak
+     * {@code sub} is a UUID, so the normal path is a straight parse.
+     *
+     * <p>The name-based (v3) fallback is kept for identities that are well-formed but not
+     * UUIDs — another identity provider, or a test subject. It is deterministic, so the same
+     * caller always maps to the same event customerId; deriving a random UUID here would make
+     * one customer look like many to every downstream consumer. (Before ADR-0009 was
+     * implemented, identity came from a dev-only header whose value was arbitrary, which is
+     * why this fallback exists at all.)
      */
     private UUID toUuidOrDerived(String customerId) {
         try {

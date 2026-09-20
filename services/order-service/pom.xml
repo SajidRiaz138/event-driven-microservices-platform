@@ -43,6 +43,18 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
         <!--
+          OAuth2 resource server (ADR-0009): this service validates the RS256 access token
+          itself — signature against Keycloak's JWKS, plus issuer, audience and expiry — and
+          derives the customer id from the `sub` claim. It does not trust an upstream hop to
+          have done so, which is why the gateway forwards the token rather than a header.
+          Brings spring-security-config/-web and spring-security-oauth2-jose transitively at
+          the Boot 4.1.1-managed version (Spring Security 7.1.1); nothing is pinned here.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
+        <!--
           Boot 4 split Kafka support out of spring-boot-autoconfigure into its own
           module, exactly as it did for Flyway below. Depending on the bare
           org.springframework.kafka:spring-kafka artifact compiles and even lets a

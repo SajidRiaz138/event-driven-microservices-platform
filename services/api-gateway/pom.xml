@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.sajidriaz.orderplatform</groupId>
+        <artifactId>event-driven-microservices-platform</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>api-gateway</artifactId>
+    <name>API Gateway</name>
+    <description>
+        Edge of the platform: routing to order-service, fail-fast JWT validation, correlation-id
+        propagation, per-client rate limiting and RFC 9457 errors. See docs/adr/0009-*.md.
+    </description>
+
+    <!--
+      NO SPRING CLOUD GATEWAY, AND THAT IS A DELIBERATE, VERIFIED DECISION.
+
+      Spring Cloud Gateway would be the obvious choice, and it does not work on this platform's
+      Spring Boot version yet. Checked against Maven Central rather than assumed:
+
+        * org.springframework.cloud:spring-cloud-dependencies — newest release train is
+          2025.1.3, whose BOM sets <spring-boot.version>4.0.8</spring-boot.version>. There is
+          no train that targets Boot 4.1.x.
+        * spring-cloud-starter-gateway-server-webmvc:5.0.3 (and its -webflux sibling) declare a
+          hard, compile-scope dependency on spring-boot-starter-web[flux]:4.0.8 — a pin, not a
+          range.
+
+      Adding either starter to this Boot 4.1.1 build would put two Boot minors on one classpath
+      and let Maven's nearest-wins resolution decide which Spring Framework the gateway's own
+      internals run against. On the module that terminates TLS-facing traffic and validates
+      tokens, that is not a trade worth making for routing convenience.
+
+      So the gateway is built on Boot 4.1.1's own managed set: spring-boot-starter-webmvc for
+      the servlet stack (consistent with every other service here, and with virtual threads),
+      RestClient for forwarding, and servlet filters for the cross-cutting edge concerns. The
+      routing this platform needs is prefix-based, which is a small amount of explicit code.
+      Revisit once a Spring Cloud train pins Boot 4.1+.
+    -->
+    <dependencies>
+        <!-- Shared platform types: correlation/traceparent context, the JWT decoder the
+             resource servers share, RFC 9457 rendering. -->
+        <dependency>
+            <groupId>com.sajidriaz.orderplatform</groupId>
+            <artifactId>common-lib</artifactId>
+        </dependency>
+
+        <!-- Servlet web stack (NOT starter-web, which Boot 4 renamed). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
+        </dependency>
+
+        <!-- Fail-fast JWT validation at the edge (ADR-0009). Downstream services validate
+             independently; this is not a trust boundary they rely on. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
+
+        <!-- Observability -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Test dependencies -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Real Keycloak (the version-controlled realm export) for the auth integration
+             test. Plain GenericContainer from the pinned Testcontainers 2.0.5 rather than a
+             third-party Keycloak module: the container needs a realm-import mount, a command
+             and an HTTP wait strategy, which is a dozen lines against an API this build
+             already depends on. -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <!-- Matches the other services: Ryuk has been observed reclaiming
+                         containers mid-test in this environment. The classpath
+                         testcontainers.properties covers IDE runs, this covers Maven. -->
+                    <environmentVariables>
+                        <TESTCONTAINERS_RYUK_DISABLED>true</TESTCONTAINERS_RYUK_DISABLED>
+                    </environmentVariables>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -76,5 +76,39 @@ services:
       timeout: 3s
       retries: 3
 
+  # auth-service = Keycloak (ADR-0018). There is no hand-rolled OAuth2 server: the realm
+  # (clients, the orders:* scopes, the audience mapper, demo users) comes from the
+  # version-controlled export below, so `make up` produces the same identity provider every
+  # time and the file is exercised by api-gateway's KeycloakRealmImportIT.
+  #
+  # Port 8180 on the host: Keycloak's own default is 8080, which order-service already uses.
+  #
+  # start-dev is deliberate for a local stack — it enables HTTP and an in-memory-configured
+  # dev database so there is nothing to provision. It is NOT a production configuration
+  # (production needs a real database, HTTPS and KC_HOSTNAME set).
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4
+    container_name: edmp-keycloak
+    command: ["start-dev", "--import-realm"]
+    environment:
+      # Admin console credentials (local only). KC_BOOTSTRAP_ADMIN_* replaced the older
+      # KEYCLOAK_ADMIN_* names in Keycloak 26.
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "8180:8080"
+    volumes:
+      # Read-only: the container imports this on startup and must never write to it.
+      - ../../services/auth-service/realm/order-platform-realm.json:/opt/keycloak/data/import/order-platform-realm.json:ro
+    healthcheck:
+      # The realm's own discovery document, not just a listening port: the realm import runs
+      # during startup, so a port check would report ready before any token can be issued.
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /realms/order-platform/.well-known/openid-configuration HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | head -1 | grep -q '200'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
 volumes:
   postgres_data:

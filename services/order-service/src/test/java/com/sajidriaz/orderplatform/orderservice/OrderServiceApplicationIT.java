@@ -1,5 +1,6 @@
 package com.sajidriaz.orderplatform.orderservice;
 
+import com.sajidriaz.orderplatform.orderservice.support.TestJwtIssuer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -32,6 +33,12 @@ class OrderServiceApplicationIT {
 		registry.add("spring.datasource.username", postgres::getUsername);
 		registry.add("spring.datasource.password", postgres::getPassword);
 		registry.add("spring.kafka.bootstrap-servers", () -> "PLAINTEXT://localhost:9092");
+		// The service is an OAuth2 resource server now (ADR-0009), so the context needs an
+		// issuer and a JWKS endpoint to build its JwtDecoder from. Pointed at the test issuer
+		// rather than a live Keycloak: this test asserts the context starts, and nothing here
+		// presents a token.
+		registry.add("spring.security.oauth2.resourceserver.jwt.jwk-set-uri", TestJwtIssuer::jwkSetUri);
+		registry.add("spring.security.oauth2.resourceserver.jwt.issuer-uri", () -> TestJwtIssuer.ISSUER);
 	}
 
 	@Test

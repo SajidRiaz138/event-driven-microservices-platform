@@ -25,6 +25,23 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
         </dependency>
+        <!--
+          JWT validation types for com.sajidriaz.orderplatform.common.security
+          (PlatformJwtDecoders — the one definition of "a valid access token", ADR-0009).
+
+          OPTIONAL on purpose. Marking it optional keeps it off the transitive classpath of
+          every consumer, so payment-service and inventory-service — Kafka consumers with no
+          customer-facing HTTP surface, and no Spring Security today — are completely
+          unaffected by this addition. The resource servers (order-service, api-gateway)
+          already depend on spring-boot-starter-oauth2-resource-server, which brings the same
+          artifact in at the Boot-managed version, so the class resolves for them at runtime.
+          Version comes from the Spring Boot 4.1.1 BOM (Spring Security 7.1.1) — not pinned here.
+        -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-oauth2-jose</artifactId>
+            <optional>true</optional>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>

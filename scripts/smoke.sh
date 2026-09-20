@@ -62,6 +62,16 @@ else
     exit 1
 fi
 
+# Check Keycloak (auth-service, ADR-0018) — the realm's discovery document, not just the
+# container, since the realm import happens during startup.
+ISSUER_URI="${JWT_ISSUER_URI:-http://localhost:8180/realms/order-platform}"
+if curl -f "${ISSUER_URI}/.well-known/openid-configuration" > /dev/null 2>&1; then
+    echo "✅ Keycloak is running (realm order-platform imported)"
+else
+    echo "❌ Keycloak is not serving the order-platform realm at ${ISSUER_URI}"
+    exit 1
+fi
+
 # Check if order service is built
 if [ -f "services/order-service/target/*.jar" ]; then
     echo "✅ Order service is built"
@@ -95,13 +105,15 @@ fi
 # Test 2: Create and retrieve an order
 echo "2️⃣ Testing order creation and retrieval..."
 
-# Create an order. Identity comes from the dev-only X-User-Id header (TODO ADR-0009);
-# prices are resolved server-side — never sent by the client (REST-API-GUIDE §1).
+# Create an order. Identity is the validated JWT `sub` claim (ADR-0009): order-service
+# verifies the token against Keycloak's JWKS itself, and no header carries identity.
+# Prices are resolved server-side — never sent by the client (REST-API-GUIDE §1).
 # A fresh Idempotency-Key is required on every mutating request (ADR-0005).
+ACCESS_TOKEN=$(./scripts/get-token.sh)
 IDEMPOTENCY_KEY=$(uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid)
 CREATE_RESPONSE_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8080/api/v1/orders \
     -H "Content-Type: application/json" \
-    -H "X-User-Id: smoke-test-customer" \
+    -H "Authorization: Bearer $ACCESS_TOKEN" \
     -H "Idempotency-Key: $IDEMPOTENCY_KEY" \
     -d '{
         "paymentInstrumentId": "pi_smoke_0001",
@@ -115,6 +127,18 @@ if [ "$CREATE_RESPONSE_CODE" -eq 202 ]; then
     echo "✅ Order creation successful (202 Accepted)"
 else
     echo "❌ Order creation failed with HTTP $CREATE_RESPONSE_CODE"
+    kill $ORDER_SERVICE_PID 2>/dev/null || true
+    exit 1
+fi
+
+# An unauthenticated call must be refused — the smoke test asserts the door is shut, not
+# only that it opens for a valid token.
+UNAUTH_RESPONSE_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+    -X GET "http://localhost:8080/api/v1/orders/00000000-0000-0000-0000-000000000000")
+if [ "$UNAUTH_RESPONSE_CODE" -eq 401 ]; then
+    echo "✅ Unauthenticated request rejected (401)"
+else
+    echo "❌ Expected 401 without a token, got HTTP $UNAUTH_RESPONSE_CODE"
     kill $ORDER_SERVICE_PID 2>/dev/null || true
     exit 1
 fi

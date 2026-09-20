@@ -1,0 +1,61 @@
+server:
+  port: 8090
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: api-gateway
+
+  threads:
+    virtual:
+      enabled: true
+
+  # Edge JWT validation (ADR-0009, ADR-0018). Same issuer the services trust; the gateway
+  # failing fast on a bad token is a latency optimisation, not a trust boundary.
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${JWT_ISSUER_URI:http://localhost:8180/realms/order-platform}
+          jwk-set-uri: ${JWT_JWKS_URI:${JWT_ISSUER_URI:http://localhost:8180/realms/order-platform}/protocol/openid-connect/certs}
+
+order-platform:
+  gateway:
+    audience: ${JWT_AUDIENCE:order-platform}
+    connect-timeout: 2s
+    read-timeout: 10s
+    rate-limit:
+      enabled: true
+      # 60 requests of burst, 20/s sustained, per client. Generous enough that a normal
+      # customer session never notices, tight enough that one client cannot saturate
+      # order-service. Per gateway instance — see TokenBucketRateLimiter.
+      capacity: ${RATE_LIMIT_CAPACITY:60}
+      refill-per-second: ${RATE_LIMIT_REFILL_PER_SECOND:20}
+    routes:
+      # Resource API. The prefix is not stripped: order-service exposes the same paths the
+      # public API does, so there is one vocabulary for an order rather than two.
+      - id: orders
+        path-prefix: /api/v1/orders
+        uri: ${ORDER_SERVICE_URI:http://localhost:8080}
+      # Token issuance, proxied to Keycloak so clients have a single origin and the identity
+      # provider is not part of the public contract. Prefix IS stripped: the OIDC path
+      # (/realms/{realm}/protocol/openid-connect/token) is a Keycloak detail.
+      - id: auth-token
+        path-prefix: /api/v1/auth/token
+        uri: ${JWT_ISSUER_URI:http://localhost:8180/realms/order-platform}/protocol/openid-connect/token
+        strip-prefix: true
+
+logging:
+  level:
+    com.sajidriaz.orderplatform: DEBUG
+    org.springframework.security: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always

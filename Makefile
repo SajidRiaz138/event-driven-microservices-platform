@@ -45,6 +45,10 @@ logs: ## Tail logs from the local stack
 demo: ## Run the scripted end-to-end demo (happy path + payment-decline compensation)
 	./scripts/demo.sh
 
+.PHONY: token
+token: ## Print an access token for the demo user (needs the stack up: make up)
+	@./scripts/get-token.sh; echo
+
 .PHONY: smoke
 smoke: ## Quick smoke test against a running stack
 	./scripts/smoke.sh

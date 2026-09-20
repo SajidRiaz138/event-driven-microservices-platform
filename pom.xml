@@ -32,11 +32,14 @@
         <module>services/order-service</module>
         <module>services/payment-service</module>
         <module>services/inventory-service</module>
-        <!--
         <module>services/api-gateway</module>
+        <!--
         auth-service (Phase 1) uses Keycloak (ADR-0018): it is a realm configuration +
         thin resource-server config, not a heavy Java module, so it is wired in with the
         gateway during the auth milestone rather than as a standalone reactor module.
+        It is therefore NOT a <module> here: services/auth-service holds the
+        version-controlled realm export (realm/order-platform-realm.json) that
+        deploy/local/compose.yaml imports into Keycloak, and no Java at all.
         -->
     </modules>
 

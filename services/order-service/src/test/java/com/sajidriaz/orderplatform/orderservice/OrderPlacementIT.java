@@ -10,6 +10,7 @@ import com.sajidriaz.orderplatform.events.payment.PaymentCaptured;
 import com.sajidriaz.orderplatform.events.payment.PaymentDeclined;
 import com.sajidriaz.orderplatform.orderservice.messaging.EnvelopeCodec;
 import com.sajidriaz.orderplatform.orderservice.messaging.Topics;
+import com.sajidriaz.orderplatform.orderservice.support.TestJwtIssuer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -29,6 +30,7 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -96,6 +98,11 @@ class OrderPlacementIT {
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
         registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
+        // This service validates the access token itself (ADR-0009): it fetches this JWKS,
+        // picks the key by `kid` and verifies the RS256 signature, then checks issuer,
+        // audience and expiry. Only the signing authority is local to the test.
+        registry.add("spring.security.oauth2.resourceserver.jwt.jwk-set-uri", TestJwtIssuer::jwkSetUri);
+        registry.add("spring.security.oauth2.resourceserver.jwt.issuer-uri", () -> TestJwtIssuer.ISSUER);
         // Fast-ish outbox relay polling so the suite doesn't wait long for events to
         // reach Kafka, while staying close to the production default (500ms) rather
         // than hammering the DB pool with an unrealistically tight interval.
@@ -318,7 +325,7 @@ class OrderPlacementIT {
 
         EntityExchangeResult<JsonNode> missingHeader = client.post().uri("/api/v1/orders")
                 .contentType(MediaType.APPLICATION_JSON)
-                .header("X-User-Id", customerId)
+                .header(HttpHeaders.AUTHORIZATION, bearerFor(customerId))
                 .body(validBody)
                 .exchange()
                 .returnResult(JsonNode.class);
@@ -344,13 +351,108 @@ class OrderPlacementIT {
     }
 
     // ---------------------------------------------------------------------
+    // Authentication and scope authorization (ADR-0009)
+    //
+    // These cover what replacing the X-User-Id stand-in actually bought: identity now comes
+    // from a token this service validated, so a token that is absent, expired, signed by
+    // somebody else, or minted for another audience must be refused — and a valid token still
+    // only permits the operations its scopes cover.
+    // ---------------------------------------------------------------------
+
+    @Test
+    void auth_missingToken_returns401ProblemJson() {
+        EntityExchangeResult<JsonNode> response = client.get().uri("/api/v1/orders/" + UUID.randomUUID())
+                .exchange()
+                .returnResult(JsonNode.class);
+
+        assertThat(response.getStatus().value()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
+        assertThat(response.getResponseHeaders().getFirst(HttpHeaders.WWW_AUTHENTICATE)).startsWith("Bearer");
+        assertProblemJson(response, 401);
+    }
+
+    @Test
+    void auth_expiredToken_returns401() {
+        assertRejectedWith401(TestJwtIssuer.expiredTokenFor("cust-" + UUID.randomUUID()));
+    }
+
+    @Test
+    void auth_tokenSignedByAKeyOutsideTheJwks_returns401() {
+        assertRejectedWith401(TestJwtIssuer.tokenSignedByUntrustedKey("cust-" + UUID.randomUUID()));
+    }
+
+    @Test
+    void auth_tokenMintedForAnotherAudience_returns401() {
+        assertRejectedWith401(TestJwtIssuer.tokenForForeignAudience("cust-" + UUID.randomUUID()));
+    }
+
+    @Test
+    void authz_readOnlyToken_cannotPlaceOrder_returns403ProblemJson() {
+        String customerId = "cust-" + UUID.randomUUID();
+        String body = """
+                { "lines": [ { "sku": "SKU-1001", "quantity": 1 } ], "currency": "USD", "paymentInstrumentId": "pi_a" }
+                """;
+
+        EntityExchangeResult<JsonNode> response = client.post().uri("/api/v1/orders")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + TestJwtIssuer.tokenWithScopes(customerId, "orders:read"))
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .body(body)
+                .exchange()
+                .returnResult(JsonNode.class);
+
+        // 403, not 404: the caller is known, the operation simply is not covered by the token.
+        assertThat(response.getStatus().value()).isEqualTo(HttpStatus.FORBIDDEN.value());
+        assertProblemJson(response, 403);
+    }
+
+    @Test
+    void authz_writeOnlyToken_cannotReadOrder_returns403() {
+        String customerId = "cust-" + UUID.randomUUID();
+        String orderId = placeOrderAndGetId(customerId, "SKU-1001", 1);
+
+        EntityExchangeResult<JsonNode> response = client.get().uri("/api/v1/orders/" + orderId)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + TestJwtIssuer.tokenWithScopes(customerId, "orders:write"))
+                .exchange()
+                .returnResult(JsonNode.class);
+
+        assertThat(response.getStatus().value()).isEqualTo(HttpStatus.FORBIDDEN.value());
+    }
+
+    private void assertRejectedWith401(String token) {
+        EntityExchangeResult<JsonNode> response = client.get().uri("/api/v1/orders/" + UUID.randomUUID())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .exchange()
+                .returnResult(JsonNode.class);
+
+        assertThat(response.getStatus().value()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
+        assertProblemJson(response, 401);
+    }
+
+    /**
+     * Rejections from the security filter chain must use the same error contract as the rest of
+     * the API (RFC 9457 + the correlationId extension), not Spring Security's default empty
+     * body — including the correlation id, which is what makes a refused call traceable.
+     */
+    private void assertProblemJson(EntityExchangeResult<JsonNode> response, int expectedStatus) {
+        assertThat(response.getResponseHeaders().getContentType()).isNotNull();
+        assertThat(response.getResponseHeaders().getContentType().toString())
+                .startsWith("application/problem+json");
+        assertThat(response.getResponseBody()).isNotNull();
+        assertThat(response.getResponseBody().get("status").asInt()).isEqualTo(expectedStatus);
+        assertThat(response.getResponseBody().get("title").asString()).isNotBlank();
+        assertThat(response.getResponseBody().get("type").asString()).isNotBlank();
+        assertThat(response.getResponseBody().get("correlationId").asString()).isNotBlank();
+        assertThat(response.getResponseHeaders().getFirst("X-Correlation-Id")).isNotNull();
+    }
+
+    // ---------------------------------------------------------------------
     // HTTP helpers
     // ---------------------------------------------------------------------
 
     private EntityExchangeResult<JsonNode> postOrder(String customerId, String idempotencyKey, String body) {
         return client.post().uri("/api/v1/orders")
                 .contentType(MediaType.APPLICATION_JSON)
-                .header("X-User-Id", customerId)
+                .header(HttpHeaders.AUTHORIZATION, bearerFor(customerId))
                 .header("Idempotency-Key", idempotencyKey)
                 .body(body)
                 .exchange()
@@ -359,9 +461,19 @@ class OrderPlacementIT {
 
     private EntityExchangeResult<JsonNode> getOrder(String customerId, String orderId) {
         return client.get().uri("/api/v1/orders/" + orderId)
-                .header("X-User-Id", customerId)
+                .header(HttpHeaders.AUTHORIZATION, bearerFor(customerId))
                 .exchange()
                 .returnResult(JsonNode.class);
+    }
+
+    /**
+     * The caller's identity is the token's {@code sub} claim — the customer id is no longer a
+     * header the client chooses (ADR-0009). Each distinct {@code customerId} in these tests
+     * therefore becomes a distinct subject, which is exactly what the cross-customer ownership
+     * case needs.
+     */
+    private String bearerFor(String customerId) {
+        return "Bearer " + TestJwtIssuer.tokenFor(customerId);
     }
 
     private String placeOrderAndGetId(String customerId, String sku, int quantity) {
