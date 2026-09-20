@@ -54,19 +54,17 @@ A durable, version-controlled record of **the order in which the platform is bui
 - Nothing is pushed to GitHub until the Phase 1 slice is reviewed and approved (step 12).
 
 ### Follow-ups surfaced during order-service (to address later)
-- **order-service mints random ids instead of persisting participant ids** (found once real
-  participants existed): `ReleaseStock.reservationId` and `CapturePayment.paymentIntentId/
-  paymentAttemptId` are fresh random UUIDs — order-service never persists/passes through the
-  ids inventory/payment issued. Participants correlate on `aggregateId` (orderId) as a
-  workaround; fix order-service to persist and pass the real ids.
-- **`src/test/resources/application.yml` shadows main config in ITs** (order-service): the
-  test-classpath file silently disables the main `application.yml` in integration tests, so
-  order-service ITs don't exercise its real production config (they pass via `@Value`
-  defaults). payment/inventory were made immune (schema named explicitly in migration+SQL).
-  Fix order-service similarly.
+- ✅ **FIXED (commit 41f2db9): order-service persists+reuses participant ids.**
+  `reservationId` / `paymentIntentId` / `paymentAttemptId` are now generated once, stored on
+  `saga_instance` (V2 migration + entity columns), and reused by ReleaseStock / CapturePayment
+  — no longer random per command. (Was: order-service minted fresh random ids that matched
+  nothing the participants issued; they correlated on `aggregateId` as a workaround.)
+- ✅ **FIXED (commit 41f2db9): removed the shadowing `src/test/resources/application.yml`.**
+  order-service ITs now run against the real main `application.yml` (dynamic properties
+  override only container-specifics), instead of a stub that silently disabled it.
 - **Parent pom pins `spring-kafka` 3.2.4** (built for Spring 6); each service overrides to
   4.1.1 locally + adds `spring-boot-starter-kafka`. Unpin the parent so services don't each
-  need the override.
+  need the override. (Still open.)
 - **Blocking retries** (DefaultErrorHandler) implemented now; ADR-0014 non-blocking retry
   topics (`-retry-1s/-10s/-1m`) recorded as a follow-up.
 - **REQUIRES_RECONCILIATION deferred to payment-service** (needs a `PaymentCaptureUnknown`
