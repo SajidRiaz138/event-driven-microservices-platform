@@ -1,5 +1,10 @@
 # Event-Driven Microservices Platform
 
+[![CI](https://github.com/SajidRiaz138/event-driven-microservices-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/SajidRiaz138/event-driven-microservices-platform/actions/workflows/ci.yml)
+[![Java 21](https://img.shields.io/badge/Java-21-orange.svg)](https://adoptium.net/)
+[![Spring Boot 4.1](https://img.shields.io/badge/Spring%20Boot-4.1-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 > A production-grade **order platform** demonstrating event-driven microservices with an
 > **asynchronous saga**, **transactional outbox**, **idempotent** consumers, **DLQ/retry**,
 > and **end-to-end observability** — built on **Spring Boot 4** and **Java 21**.
