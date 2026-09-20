@@ -30,8 +30,8 @@ A durable, version-controlled record of **the order in which the platform is bui
 | 6 | Root scaffolding — parent POM, README, Makefile, LICENSE, SECURITY.md, mvnw | ✅ | `./mvnw -N validate` = 0; Boot 4.1.1 resolves |
 | 7 | Shared contracts — `avro-schemas` + `common-lib` | ✅ | `./mvnw install` = 0; 18 schemas → 22 classes; MoneyTest 5/5 |
 | 8 | **order-service** — first runnable slice (REST + saga + outbox + Flyway + tests) | ✅ | `DOCKER_AVAILABLE=true ./mvnw clean -pl services/order-service -am verify` = **BUILD SUCCESS**. **25 unit tests** + **8 integration tests** (OrderPlacementIT 7 + context 1) pass over **real Postgres 17.6 + Kafka 4.1.2** (Testcontainers 2.0.5). Async saga end-to-end verified: happy path→CONFIRMED, payment-decline→compensation→CANCELLED, idempotency (409 on conflict), ownership 404, compensated saga→DONE. Added: Kafka DLQ+retry error handler w/ classification (ADR-0006), timeout sweeper (ADR-0003), 400 problem+json handlers, StockReleased consumer, traceparent. **Fixed critical latent bug: `@KafkaListener` was inactive** (Boot 4 needs `spring-boot-starter-kafka`, not bare `spring-kafka`) — reply events were consumed by nobody |
-| 9 | payment-service + inventory-service (saga participants) | ⬜ | Outbox + idempotency; reservation TTL; payment reconciliation (ADR-0016) — carries the REQUIRES_RECONCILIATION work deferred from order-service |
-| 10 | api-gateway + auth-service (Keycloak, ADR-0018) | ⬜ | Edge routing, per-service JWT validation |
+| 9 | payment-service + inventory-service (saga participants) | ✅ | Whole-reactor `DOCKER_AVAILABLE=true ./mvnw clean verify` = **BUILD SUCCESS**, **94 tests** (12 shared + 33 order + 42 payment + 37 inventory), 0 failures. payment: ADR-0016 intent/attempt/operation + providerIdempotencyKey + capture-once + UNKNOWN→reconciliation (new additive PaymentCaptureUnknown event). inventory: ADR-0015 atomic conditional decrement (no oversell, concurrent last-unit test) + TTL + Redis display-only. Additive shared: EnvelopeCodec/PlatformTopics/MessageTypes/TraceparentContext (order-service unchanged, still 25+8). |
+| 10 | api-gateway + auth-service (Keycloak, ADR-0018) | ⬜ | Edge routing, per-service JWT validation; replace order-service X-User-Id dev stand-in |
 | 11 | One-command demo (compose) + CI pipeline | ⬜ | `make up`/`make demo`; happy path + compensation + redelivery visible |
 | 12 | Phase 1 review with user, then first push to GitHub | ⬜ | Nothing pushed until Phase 1 is proven |
 
@@ -54,9 +54,19 @@ A durable, version-controlled record of **the order in which the platform is bui
 - Nothing is pushed to GitHub until the Phase 1 slice is reviewed and approved (step 12).
 
 ### Follow-ups surfaced during order-service (to address later)
-- **Parent pom pins `spring-kafka` 3.2.4** (built for Spring 6); order-service overrides to
-  4.1.1 locally + adds `spring-boot-starter-kafka`. Unpin the parent so other services don't
-  hit the same "listener silently inactive" trap.
+- **order-service mints random ids instead of persisting participant ids** (found once real
+  participants existed): `ReleaseStock.reservationId` and `CapturePayment.paymentIntentId/
+  paymentAttemptId` are fresh random UUIDs — order-service never persists/passes through the
+  ids inventory/payment issued. Participants correlate on `aggregateId` (orderId) as a
+  workaround; fix order-service to persist and pass the real ids.
+- **`src/test/resources/application.yml` shadows main config in ITs** (order-service): the
+  test-classpath file silently disables the main `application.yml` in integration tests, so
+  order-service ITs don't exercise its real production config (they pass via `@Value`
+  defaults). payment/inventory were made immune (schema named explicitly in migration+SQL).
+  Fix order-service similarly.
+- **Parent pom pins `spring-kafka` 3.2.4** (built for Spring 6); each service overrides to
+  4.1.1 locally + adds `spring-boot-starter-kafka`. Unpin the parent so services don't each
+  need the override.
 - **Blocking retries** (DefaultErrorHandler) implemented now; ADR-0014 non-blocking retry
   topics (`-retry-1s/-10s/-1m`) recorded as a follow-up.
 - **REQUIRES_RECONCILIATION deferred to payment-service** (needs a `PaymentCaptureUnknown`
