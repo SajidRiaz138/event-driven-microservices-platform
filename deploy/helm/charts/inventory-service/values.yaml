@@ -1,0 +1,96 @@
+# inventory-service. The only service that uses Redis, and only as a display-only
+# availability cache — the reservation decision is an atomic conditional UPDATE in
+# Postgres (ADR-0015). INVENTORY_CACHE_REDIS_ENABLED switches on both the cache and its
+# health indicator, exactly as in compose.
+
+component: inventory
+
+image:
+  repository: edmp/inventory-service
+  tag: local
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+containerPort: 8082
+service:
+  type: ClusterIP
+  port: 8082
+  portName: http
+
+env:
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/orderdb
+  POSTGRES_INVENTORY_USER: appuser
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  INVENTORY_CACHE_REDIS_ENABLED: "true"
+  MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+  JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=65 -XX:+UseSerialGC
+
+secretEnv:
+  - name: POSTGRES_APP_PASSWORD
+    secret: platform-secrets
+    key: postgres-app-password
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    memory: 768Mi
+
+serviceAccount:
+  create: true
+  automountServiceAccountToken: false
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+probes:
+  startup:
+    enabled: true
+    path: /actuator/health/readiness
+    initialDelaySeconds: 15
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 36
+  readiness:
+    enabled: true
+    path: /actuator/health/readiness
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  liveness:
+    enabled: true
+    path: /actuator/health/liveness
+    periodSeconds: 20
+    timeoutSeconds: 3
+    failureThreshold: 5
+
+nameOverride: ""
+fullnameOverride: ""
+strategy:
+  type: RollingUpdate
+terminationGracePeriodSeconds: 30
+envFrom: []
+podAnnotations: {}
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 75
+  targetMemoryUtilizationPercentage: ""
+nodeSelector: {}
+tolerations: []
+affinity: {}

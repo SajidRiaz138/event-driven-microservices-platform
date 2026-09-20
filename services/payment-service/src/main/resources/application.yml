@@ -111,6 +111,10 @@ payment:
       capture-timeout-unanswerable-tokens: pi_capture_timeout_unanswerable
 
 logging:
+  # See order-service's application.yml for why: the correlationId reaches the MDC but
+  # never reached the output (ADR-0013).
+  pattern:
+    level: "%5p [${spring.application.name:},%X{correlationId:-},%X{traceId:-}]"
   level:
     com.sajidriaz.orderplatform: DEBUG
     org.springframework.kafka: INFO
@@ -124,3 +128,7 @@ management:
   endpoint:
     health:
       show-details: always
+      # See order-service: without this the readiness/liveness probe endpoints do not
+      # exist, and it used to be supplied only by the container environment.
+      probes:
+        enabled: ${MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED:true}

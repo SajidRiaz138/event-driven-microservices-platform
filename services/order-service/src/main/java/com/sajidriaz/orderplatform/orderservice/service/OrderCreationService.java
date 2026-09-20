@@ -1,6 +1,7 @@
 package com.sajidriaz.orderplatform.orderservice.service;
 
 import com.sajidriaz.orderplatform.common.money.Money;
+import com.sajidriaz.orderplatform.common.observability.CorrelationContext;
 import com.sajidriaz.orderplatform.events.MessageKind;
 import com.sajidriaz.orderplatform.orderservice.entity.IdempotencyKeyEntity;
 import com.sajidriaz.orderplatform.orderservice.entity.OrderEntity;
@@ -99,7 +100,14 @@ public class OrderCreationService {
 
         OrderEntity savedOrder = orderRepository.save(order);
 
-        UUID correlationId = UUID.randomUUID();
+        // The correlationId of the whole saga is the one the caller's request already
+        // carries (ADR-0013: "one correlationId stitches together the logs of an entire
+        // business flow"). CorrelationIdFilter has put it in the MDC and returned it in
+        // the X-Correlation-Id response header, so the id the client is handed is the id
+        // that travels on every Envelope to payment and inventory. Minting a fresh one
+        // here would hand the client an identifier that appears in no other service's
+        // logs.
+        UUID correlationId = correlationIdForSaga();
         SagaInstanceEntity saga = new SagaInstanceEntity(savedOrder.getId(), correlationId);
         sagaInstanceRepository.save(saga);
 
@@ -126,6 +134,29 @@ public class OrderCreationService {
                 202, toJson(response), savedOrder.getId()));
 
         return new Created(response);
+    }
+
+    /**
+     * The ambient correlation id, as a UUID, or a fresh one.
+     *
+     * <p>Two fallbacks, both real. There may be no MDC value at all — this method is
+     * reachable from a call that did not come through {@link
+     * com.sajidriaz.orderplatform.orderservice.web.CorrelationIdFilter} (a test, or any
+     * future non-HTTP trigger). And the value need not be a UUID: the filter adopts an
+     * inbound {@code X-Correlation-Id} verbatim, while {@code saga_instance.correlation_id}
+     * and the Avro envelope's {@code correlationId} are typed as UUIDs. A caller sending
+     * a non-UUID header must not turn a valid order into a 500.
+     */
+    private static UUID correlationIdForSaga() {
+        String current = CorrelationContext.currentCorrelationId();
+        if (current == null || current.isBlank()) {
+            return UUID.randomUUID();
+        }
+        try {
+            return UUID.fromString(current);
+        } catch (IllegalArgumentException notAUuid) {
+            return UUID.randomUUID();
+        }
     }
 
     private String toJson(OrderAcceptedResponse response) {

@@ -95,6 +95,15 @@ order-platform:
       audience: ${JWT_AUDIENCE:order-platform}
 
 logging:
+  # ADR-0013 promises that one correlationId stitches an entire business flow together in
+  # the logs, and scripts/demo.sh prints one and tells you to grep for it. Nothing put the
+  # MDC into the output, so neither was true. This substitutes the level field of Boot's
+  # default console pattern — the same mechanism Sleuth used — so every line reads
+  #   INFO [order-service,<correlationId>,<traceId>]
+  # The `:-` defaults keep lines with no ambient context (the timeout sweeper, startup)
+  # readable instead of printing "null".
+  pattern:
+    level: "%5p [${spring.application.name:},%X{correlationId:-},%X{traceId:-}]"
   level:
     com.sajidriaz.orderplatform: DEBUG
     org.springframework.kafka: INFO
@@ -108,3 +117,10 @@ management:
   endpoint:
     health:
       show-details: always
+      # /actuator/health/readiness and /actuator/health/liveness do not exist unless this
+      # is on. It was only ever set as a container environment variable, so any deployment
+      # that forgot it got pods whose readiness probe 404s forever — the endpoint the
+      # compose healthchecks and the Helm probes both depend on. Defaulted here, still
+      # overridable by MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED.
+      probes:
+        enabled: ${MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED:true}

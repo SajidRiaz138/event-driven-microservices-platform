@@ -41,6 +41,19 @@ kubeconfig
 *.kubeconfig
 
 # =============================================================
+#  HELM
+# =============================================================
+# Vendored chart dependencies and their lock files are build output: `make k8s-deps`
+# regenerates them from the file:// paths in each Chart.yaml.
+deploy/helm/**/charts/*.tgz
+deploy/helm/**/Chart.lock
+
+# The Secret TEMPLATE in the umbrella chart is chart source, not a credential — it holds
+# the same documented dev placeholders as .env.example. Without this negation the blanket
+# `*secret*` rule above silently un-tracks it, and the chart installs without a Secret.
+!deploy/helm/**/templates/secrets.yaml
+
+# =============================================================
 #  JAVA / BUILD ARTIFACTS
 # =============================================================
 target/

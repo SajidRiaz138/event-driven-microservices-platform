@@ -1,0 +1,106 @@
+# minikube profile: fit the whole platform on a laptop node and never reach for a
+# registry. Used as:
+#
+#   helm install platform deploy/helm/platform-umbrella \
+#     -n edmp --create-namespace -f deploy/helm/platform-umbrella/values-minikube.yaml \
+#     --set-file postgres.initSql=deploy/local/postgres-init/01-extensions.sql \
+#     --set-file keycloak.realmJson=services/auth-service/realm/order-platform-realm.json
+#
+# Two changes from the defaults, and nothing else:
+#
+# 1. imagePullPolicy: IfNotPresent everywhere. The four edmp/* images exist only in the
+#    cluster's own container daemon (`minikube image load`), and no registry has ever
+#    heard of them. Always/absent would give ErrImagePull on every pod.
+#
+# 2. Requests are cut to what actually has to be reserved, while limits stay at the
+#    compose mem_limit values. Requests are what the scheduler subtracts from the node;
+#    limits are what the JVM sizes its heap from (-XX:MaxRAMPercentage=65). Keeping the
+#    limits and shrinking the requests is what makes eight components fit on a 4 GiB node
+#    without changing how any of them behaves.
+#
+# Measured on this node: 8 pods Ready with ~1.6 GiB of memory requests and 850m of CPU
+# requests in total. See docs/deployment/kubernetes-minikube.md for the numbers and for
+# the minimum `minikube start` flags they imply.
+
+postgres:
+  image:
+    pullPolicy: IfNotPresent
+  persistence:
+    enabled: true
+    size: 1Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+
+kafka:
+  image:
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      memory: 1Gi
+
+redis:
+  image:
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
+
+keycloak:
+  image:
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 150m
+      memory: 384Mi
+    limits:
+      memory: 1Gi
+
+order-service:
+  image:
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 192Mi
+    limits:
+      memory: 768Mi
+
+payment-service:
+  image:
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 192Mi
+    limits:
+      memory: 768Mi
+
+inventory-service:
+  image:
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 192Mi
+    limits:
+      memory: 768Mi
+
+api-gateway:
+  image:
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 75m
+      memory: 160Mi
+    limits:
+      memory: 512Mi

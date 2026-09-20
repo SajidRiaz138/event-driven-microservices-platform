@@ -1,0 +1,61 @@
+{{- if .Values.redis.enabled }}
+{{/*
+Redis — inventory-service's display-only availability cache, nothing else talks to it.
+No persistence and no auth, matching compose: it holds derived data with a 30s TTL, and
+it is reachable only from inside the namespace on a ClusterIP. If this ever needs a
+password, note that no service currently reads one — spring.data.redis.password is not
+wired anywhere, so adding auth is a code change, not just a values change.
+*/}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  labels:
+    {{- include "platform.labels" (dict "root" $ "name" "redis" "component" "cache") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+  selector:
+    {{- include "platform.selectorLabels" (dict "root" $ "name" "redis") | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  labels:
+    {{- include "platform.labels" (dict "root" $ "name" "redis" "component" "cache") | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "platform.selectorLabels" (dict "root" $ "name" "redis") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "platform.labels" (dict "root" $ "name" "redis" "component" "cache") | nindent 8 }}
+    spec:
+      containers:
+        - name: redis
+          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+          imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+          ports:
+            - name: redis
+              containerPort: 6379
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: redis
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 5
+          resources:
+            {{- toYaml .Values.redis.resources | nindent 12 }}
+{{- end }}

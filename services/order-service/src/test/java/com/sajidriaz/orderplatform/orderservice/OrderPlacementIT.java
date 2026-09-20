@@ -207,6 +207,43 @@ class OrderPlacementIT {
         assertEventPublished(orderId, "events.order.created");
     }
 
+    /**
+     * ADR-0013: "one correlationId stitches together the logs of an entire business flow
+     * across services". It did not. The saga minted its own {@code UUID.randomUUID()}, so
+     * the id handed back to the caller in {@code X-Correlation-Id} appeared on no Envelope
+     * and in no other service's logs, and the id that did travel appeared in no response.
+     * Grepping for the value the demo prints found nothing outside the gateway.
+     *
+     * <p>The id on the wire must be the id the caller was given.
+     */
+    @Test
+    void placeOrder_putsTheRequestCorrelationIdOnTheEnvelope() {
+        String customerId = "cust-" + UUID.randomUUID();
+        String correlationId = UUID.randomUUID().toString();
+
+        String body = """
+                { "lines": [ { "sku": "SKU-1001", "quantity": 1 } ], "currency": "USD", "paymentInstrumentId": "pi_corr" }
+                """;
+
+        EntityExchangeResult<JsonNode> created = client.post().uri("/api/v1/orders")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header(HttpHeaders.AUTHORIZATION, bearerFor(customerId))
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .header("X-Correlation-Id", correlationId)
+                .body(body)
+                .exchange()
+                .returnResult(JsonNode.class);
+
+        assertThat(created.getStatus().value()).isEqualTo(HttpStatus.ACCEPTED.value());
+        assertThat(created.getResponseHeaders().getFirst("X-Correlation-Id")).isEqualTo(correlationId);
+        assertThat(created.getResponseBody()).isNotNull();
+
+        String orderId = created.getResponseBody().get("orderId").asString();
+
+        Envelope published = awaitEvent(orderId, "events.order.created");
+        assertThat(String.valueOf(published.getCorrelationId())).isEqualTo(correlationId);
+    }
+
     @Test
     void happyPath_stockReservedAuthorizedCaptured_confirmsOrder() {
         String customerId = "cust-" + UUID.randomUUID();
@@ -571,12 +608,20 @@ class OrderPlacementIT {
      * without missing any poll — the consumer is never re-subscribed mid-suite.
      */
     private void assertEventPublished(String orderId, String expectedType) {
+        awaitEvent(orderId, expectedType);
+    }
+
+    /**
+     * As {@link #assertEventPublished}, but hands the message back so a test can assert on
+     * the envelope itself and not merely on its existence.
+     */
+    private Envelope awaitEvent(String orderId, String expectedType) {
         Iterator<Envelope> bufferedIt = bufferedEnvelopes.iterator();
         while (bufferedIt.hasNext()) {
             Envelope envelope = bufferedIt.next();
             if (envelope.getAggregateId().equals(orderId) && envelope.getType().equals(expectedType)) {
                 bufferedIt.remove();
-                return;
+                return envelope;
             }
         }
 
@@ -586,7 +631,7 @@ class OrderPlacementIT {
             for (ConsumerRecord<String, byte[]> record : records) {
                 Envelope envelope = envelopeCodec.decodeEnvelope(record.value());
                 if (envelope.getAggregateId().equals(orderId) && envelope.getType().equals(expectedType)) {
-                    return;
+                    return envelope;
                 }
                 bufferedEnvelopes.add(envelope);
             }

@@ -1,0 +1,98 @@
+# api-gateway — the edge. Still a ClusterIP Service: on a dev cluster it is reached with
+# `kubectl port-forward svc/api-gateway 8090:8090`, on a real cluster with an Ingress.
+# What must never happen is a second entry point appearing beside it (ADR-0009).
+#
+# The gateway has no datasource and no Kafka client, so it starts faster than the three
+# backend services — hence the shorter startupProbe budget, matching compose's shorter
+# start_period for this container.
+
+component: edge
+
+image:
+  repository: edmp/api-gateway
+  tag: local
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+containerPort: 8090
+service:
+  type: ClusterIP
+  port: 8090
+  portName: http
+
+env:
+  ORDER_SERVICE_URI: http://order-service:8080
+  JWT_ISSUER_URI: http://keycloak:8080/realms/order-platform
+  JWT_AUDIENCE: order-platform
+  # The rate limiter is per-pod (in-memory token bucket). With replicaCount 1 the
+  # configured capacity is the real capacity; raise replicas and the effective limit
+  # multiplies, which needs a shared store before it means anything.
+  RATE_LIMIT_CAPACITY: "60"
+  RATE_LIMIT_REFILL_PER_SECOND: "20"
+  MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+  JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=65 -XX:+UseSerialGC
+
+secretEnv: []
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 320Mi
+  limits:
+    memory: 512Mi
+
+serviceAccount:
+  create: true
+  automountServiceAccountToken: false
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+probes:
+  startup:
+    enabled: true
+    path: /actuator/health/readiness
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 24
+  readiness:
+    enabled: true
+    path: /actuator/health/readiness
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  liveness:
+    enabled: true
+    path: /actuator/health/liveness
+    periodSeconds: 20
+    timeoutSeconds: 3
+    failureThreshold: 5
+
+nameOverride: ""
+fullnameOverride: ""
+strategy:
+  type: RollingUpdate
+terminationGracePeriodSeconds: 30
+envFrom: []
+podAnnotations: {}
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 75
+  targetMemoryUtilizationPercentage: ""
+nodeSelector: {}
+tolerations: []
+affinity: {}

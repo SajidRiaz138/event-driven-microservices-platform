@@ -1,0 +1,132 @@
+{{- if .Values.keycloak.enabled }}
+{{/*
+Keycloak 26.4 — auth-service (ADR-0018). No hand-rolled OAuth2 server, and no bespoke
+realm: the clients, the orders:* scopes, the audience mapper and the demo users all come
+from the version-controlled export that compose mounts and that api-gateway's
+KeycloakRealmImportIT exercises.
+
+The realm arrives as a ConfigMap built from that same file:
+  --set-file keycloak.realmJson=services/auth-service/realm/order-platform-realm.json
+It is 8.4 KB, comfortably inside the ~1 MiB a ConfigMap can hold, and copying it into the
+chart would have created a second copy to keep in step.
+
+start-dev is deliberate and dev-only, exactly as in compose: HTTP, an embedded database,
+nothing to provision. A production Keycloak needs an external database, HTTPS and a public
+hostname — a different values file at minimum, and realistically the Keycloak operator.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-realm
+  labels:
+    {{- include "platform.labels" (dict "root" $ "name" "keycloak" "component" "auth") | nindent 4 }}
+data:
+  {{ .Values.keycloak.realmName }}-realm.json: |
+{{ .Values.keycloak.realmJson | required "keycloak.realmJson is empty. Install with --set-file keycloak.realmJson=services/auth-service/realm/order-platform-realm.json" | indent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+  labels:
+    {{- include "platform.labels" (dict "root" $ "name" "keycloak" "component" "auth") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+    - name: management
+      port: 9000
+      targetPort: management
+  selector:
+    {{- include "platform.selectorLabels" (dict "root" $ "name" "keycloak") | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  labels:
+    {{- include "platform.labels" (dict "root" $ "name" "keycloak" "component" "auth") | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "platform.selectorLabels" (dict "root" $ "name" "keycloak") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "platform.labels" (dict "root" $ "name" "keycloak" "component" "auth") | nindent 8 }}
+      annotations:
+        {{/* Re-import when the realm export changes. */}}
+        checksum/realm: {{ .Values.keycloak.realmJson | sha256sum }}
+    spec:
+      containers:
+        - name: keycloak
+          image: "{{ .Values.keycloak.image.repository }}:{{ .Values.keycloak.image.tag }}"
+          imagePullPolicy: {{ .Values.keycloak.image.pullPolicy }}
+          args: ["start-dev", "--import-realm"]
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: management
+              containerPort: 9000
+          env:
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
+              value: {{ .Values.keycloak.adminUser | quote }}
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.name }}
+                  key: keycloak-admin-password
+            - name: KC_HEALTH_ENABLED
+              value: "true"
+            {{/*
+              The issuer, pinned. Keycloak stamps this into `iss` no matter which address
+              the caller dialled, which is what lets the demo fetch a token through a
+              port-forward on localhost and still have in-cluster services accept it. It
+              must resolve inside the cluster; an external URL here breaks every service.
+            */}}
+            - name: KC_HOSTNAME
+              value: {{ .Values.keycloak.hostname | quote }}
+            - name: KC_HOSTNAME_STRICT
+              value: "true"
+            - name: KC_HOSTNAME_BACKCHANNEL_DYNAMIC
+              value: "false"
+          volumeMounts:
+            - name: realm
+              mountPath: /opt/keycloak/data/import
+              readOnly: true
+          {{/*
+            The realm's own discovery document, not a port check and not /health/ready:
+            the import runs during startup, and a server that is up but has not finished
+            importing cannot issue a token yet. A 200 here means the realm exists.
+          */}}
+          startupProbe:
+            httpGet:
+              path: /realms/{{ .Values.keycloak.realmName }}/.well-known/openid-configuration
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 40
+          readinessProbe:
+            httpGet:
+              path: /realms/{{ .Values.keycloak.realmName }}/.well-known/openid-configuration
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: management
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 5
+          resources:
+            {{- toYaml .Values.keycloak.resources | nindent 12 }}
+      volumes:
+        - name: realm
+          configMap:
+            name: keycloak-realm
+{{- end }}

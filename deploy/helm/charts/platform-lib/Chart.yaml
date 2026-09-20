@@ -1,0 +1,15 @@
+apiVersion: v2
+name: platform-lib
+description: |
+  Library chart for the event-driven order platform (ADR-0008). It owns the templates
+  every service Deployment needs — Deployment, Service, ServiceAccount, HPA, probes,
+  config/secret wiring and the standard label set — so a service chart is only a
+  values.yaml. Nothing here renders on its own: a library chart emits no resources.
+type: library
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - library
+  - platform
+maintainers:
+  - name: Sajid Riaz

@@ -153,10 +153,13 @@ services:
   # run in compose. SPRING_* names are Spring Boot's relaxed binding for the properties the
   # YAML hardcodes for host-local development (localhost:5432 / localhost:9092).
   #
-  # Healthchecks hit /actuator/health/readiness, not /actuator/health. The aggregate health
-  # endpoint includes the Kafka indicator, so a broker blip would flip the container to
-  # unhealthy and take dependents down with it; readiness must not fail on a broker blip
-  # (ADR-0014). The aggregate endpoint stays available and still reports Kafka for humans.
+  # Healthchecks hit /actuator/health/readiness, not /actuator/health. The readiness group
+  # holds the application's own readiness state; the aggregate endpoint holds the dependency
+  # indicators — on Boot 4.1.1 that is db, diskSpace, ping and ssl (there is no Kafka
+  # indicator on the classpath today, so the broker affects neither endpoint). Probing the
+  # aggregate would still be wrong: one Postgres blip would flip every container to unhealthy
+  # and take dependents down with it, and readiness must not fail on a dependency blip
+  # (ADR-0014). The aggregate endpoint stays available for humans.
   # ---------------------------------------------------------------------------------------
 
   order-service:

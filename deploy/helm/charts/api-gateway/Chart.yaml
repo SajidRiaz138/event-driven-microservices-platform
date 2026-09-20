@@ -1,0 +1,10 @@
+apiVersion: v2
+name: api-gateway
+description: The platform edge — the only entry point (ADR-0009). Routes, JWT, rate limit.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: platform-lib
+    version: 0.1.0
+    repository: file://../platform-lib

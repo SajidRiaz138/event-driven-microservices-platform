@@ -1,0 +1,95 @@
+# payment-service. Kafka-driven only: it exposes no customer-facing REST API, validates
+# no JWT (it never sees one — ADR-0009 puts identity in the message envelope, not in an
+# ambient caller header) and therefore gets no JWT_ISSUER_URI. Its HTTP port serves
+# actuator alone, which is why the Service stays ClusterIP and nothing routes to it.
+
+component: payment
+
+image:
+  repository: edmp/payment-service
+  tag: local
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+containerPort: 8081
+service:
+  type: ClusterIP
+  port: 8081
+  portName: http
+
+env:
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/orderdb
+  # payment-service reads its datasource username from POSTGRES_PAYMENT_USER, not from
+  # SPRING_DATASOURCE_USERNAME — its application.yml wires the placeholder that way.
+  POSTGRES_PAYMENT_USER: appuser
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+  JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=65 -XX:+UseSerialGC
+
+secretEnv:
+  - name: POSTGRES_APP_PASSWORD
+    secret: platform-secrets
+    key: postgres-app-password
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    memory: 768Mi
+
+serviceAccount:
+  create: true
+  automountServiceAccountToken: false
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+probes:
+  startup:
+    enabled: true
+    path: /actuator/health/readiness
+    initialDelaySeconds: 15
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 36
+  readiness:
+    enabled: true
+    path: /actuator/health/readiness
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  liveness:
+    enabled: true
+    path: /actuator/health/liveness
+    periodSeconds: 20
+    timeoutSeconds: 3
+    failureThreshold: 5
+
+nameOverride: ""
+fullnameOverride: ""
+strategy:
+  type: RollingUpdate
+terminationGracePeriodSeconds: 30
+envFrom: []
+podAnnotations: {}
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 75
+  targetMemoryUtilizationPercentage: ""
+nodeSelector: {}
+tolerations: []
+affinity: {}

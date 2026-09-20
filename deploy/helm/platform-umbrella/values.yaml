@@ -1,0 +1,147 @@
+# platform-umbrella defaults.
+#
+# The four services are subcharts and carry their own values; only what the umbrella owns
+# lives here — the infrastructure, and the Secret the services read their password from.
+#
+# The infrastructure is deliberately hand-written rather than pulled from Bitnami/Strimzi:
+# the whole point is a single broker, a single Postgres and a dev-mode Keycloak that come
+# up on a laptop in a minute, and the upstream charts carry a lot of production machinery
+# that has to be switched off before it fits (and, for Bitnami, image repositories that
+# have moved). Four small templates beat four large values files here. A real cluster
+# would use an operator, and that is a different values file, not a different chart.
+
+# ---------------------------------------------------------------------------------------
+# Secrets. Dev defaults only — the same placeholder values as .env.example, which the repo
+# states outright are not secrets. Override on install:
+#   --set secrets.postgresAppPassword=... --set secrets.keycloakAdminPassword=...
+# or point the services at an externally managed Secret with secrets.create=false.
+# ---------------------------------------------------------------------------------------
+secrets:
+  create: true
+  name: platform-secrets
+  postgresAppPassword: changeme-dev-only
+  keycloakAdminPassword: admin
+
+# ---------------------------------------------------------------------------------------
+# PostgreSQL 17.6 — the same image tag the Testcontainers integration tests run against.
+# One database, one role, schema-per-service (ADR-0007): order-service owns `public`,
+# payment-service `payment`, inventory-service `inventory`. The schemas are created by the
+# services' own Flyway V1 migrations; this chart only has to provide the uuid-ossp
+# extension that order-service's V1 depends on, which is what initSql is for.
+#
+# initSql is not defaulted on purpose: it is supplied from the file that the compose stack
+# already uses, so there is exactly one copy of it in the repository.
+#   --set-file postgres.initSql=deploy/local/postgres-init/01-extensions.sql
+# ---------------------------------------------------------------------------------------
+postgres:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "17.6"
+    pullPolicy: IfNotPresent
+  database: orderdb
+  username: appuser
+  initSql: ""
+  persistence:
+    enabled: true
+    size: 2Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+# ---------------------------------------------------------------------------------------
+# Kafka 4.1.2, KRaft, single node in combined broker+controller mode. No ZooKeeper and no
+# Schema Registry: the services serialize Avro in-process and put raw bytes on the wire
+# (ADR-0017), so there is nothing for a registry to do.
+#
+# Two things differ from compose, both forced by Kubernetes rather than chosen:
+#   * the PLAINTEXT_HOST listener is gone. It existed so a console consumer on the docker
+#     host could watch topics; in a cluster that is `kubectl port-forward` plus a client,
+#     and an advertised listener pointing at localhost would be a trap.
+#   * the controller quorum voter is the pod's stable StatefulSet DNS name, not the
+#     Service name. A voter address must resolve to THE node, not to a load balancer, and
+#     it has to resolve before the pod is ready — hence the headless Service with
+#     publishNotReadyAddresses.
+# Clients still use the plain `kafka:9092` Service, exactly as in compose.
+# ---------------------------------------------------------------------------------------
+kafka:
+  enabled: true
+  image:
+    repository: apache/kafka
+    tag: "4.1.2"
+    pullPolicy: IfNotPresent
+  numPartitions: 3
+  autoCreateTopics: true
+  resources:
+    requests:
+      cpu: 200m
+      memory: 768Mi
+    limits:
+      memory: 1Gi
+
+# ---------------------------------------------------------------------------------------
+# Redis — inventory-service's display-only availability cache. No persistence: losing it
+# costs one cache miss.
+# ---------------------------------------------------------------------------------------
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: 7-alpine
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+# ---------------------------------------------------------------------------------------
+# Keycloak — auth-service (ADR-0018). start-dev with --import-realm, the realm coming from
+# the version-controlled export the compose stack and api-gateway's KeycloakRealmImportIT
+# already use. As with the SQL above, it is supplied from that one file rather than copied
+# into the chart:
+#   --set-file keycloak.realmJson=services/auth-service/realm/order-platform-realm.json
+#
+# hostname is the single most load-bearing value in this file. Keycloak stamps `iss` from
+# it, and every service compares `iss` by exact string equality (PlatformJwtDecoders), so
+# it must be an address that resolves INSIDE the cluster and it must match the services'
+# JWT_ISSUER_URI character for character. A token fetched from outside through a
+# port-forward still carries this issuer, which is exactly why the demo works against the
+# cluster unchanged. Setting this to an external URL is the classic way to break every
+# token validation at once.
+# ---------------------------------------------------------------------------------------
+keycloak:
+  enabled: true
+  image:
+    repository: quay.io/keycloak/keycloak
+    tag: "26.4"
+    pullPolicy: IfNotPresent
+  realmName: order-platform
+  realmJson: ""
+  hostname: http://keycloak:8080
+  adminUser: admin
+  resources:
+    requests:
+      cpu: 200m
+      memory: 640Mi
+    limits:
+      memory: 1Gi
+
+# ---------------------------------------------------------------------------------------
+# Subchart toggles. Values for the services themselves live in their own charts; anything
+# set here overrides them (and is merged key by key, so overriding one env var does not
+# drop the others).
+# ---------------------------------------------------------------------------------------
+order-service:
+  enabled: true
+payment-service:
+  enabled: true
+inventory-service:
+  enabled: true
+api-gateway:
+  enabled: true

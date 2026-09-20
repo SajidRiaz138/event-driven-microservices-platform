@@ -1,9 +1,11 @@
 package com.sajidriaz.orderplatform.orderservice.saga;
 
+import com.sajidriaz.orderplatform.common.observability.CorrelationContext;
 import com.sajidriaz.orderplatform.events.Envelope;
 import com.sajidriaz.orderplatform.orderservice.entity.ProcessedMessageEntity;
 import com.sajidriaz.orderplatform.orderservice.messaging.EnvelopeCodec;
 import com.sajidriaz.orderplatform.orderservice.messaging.Topics;
+import com.sajidriaz.orderplatform.orderservice.observability.TraceparentContext;
 import com.sajidriaz.orderplatform.orderservice.repository.ProcessedMessageRepository;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
@@ -62,8 +64,23 @@ public class SagaReplyListener {
             Topics.EVENTS_PAYMENT_CAPTURE_FAILED
     }, groupId = CONSUMER_GROUP)
     public void onReplyEvent(ConsumerRecord<String, byte[]> record, Acknowledgment ack) {
-        process(record, envelope -> dispatch(record.topic(), envelope));
-        ack.acknowledge();
+        Envelope envelope = envelopeCodec.decodeEnvelope(record.value());
+        // Adopt the sender's context so logs join up and events produced here carry the same
+        // traceparent (ADR-0013). Without this, the orchestrator's own log lines — the ones
+        // that say what the saga decided — are the only ones in the flow with no
+        // correlationId, which is exactly backwards. Cleared in the finally: a virtual
+        // thread must never be left holding stale context.
+        CorrelationContext.adoptOrGenerate(String.valueOf(envelope.getCorrelationId()));
+        TraceparentContext.set(envelope.getTraceparent());
+        CorrelationContext.setTraceId(TraceparentContext.traceIdOf(envelope.getTraceparent()));
+        CorrelationContext.setTenant(envelope.getTenantId());
+        try {
+            applyIfNotProcessed(envelope, e -> dispatch(record.topic(), e));
+            ack.acknowledge();
+        } finally {
+            TraceparentContext.clear();
+            CorrelationContext.clear();
+        }
     }
 
     /**
@@ -96,15 +113,10 @@ public class SagaReplyListener {
     }
 
     /**
-     * Decodes the envelope and applies {@code action} inside one transaction that
-     * also inserts the dedup row — unless the message id has already been processed,
-     * in which case the action is skipped entirely (idempotent redelivery, S-10).
+     * Applies {@code action} inside one transaction that also inserts the dedup row —
+     * unless the message id has already been processed, in which case the action is
+     * skipped entirely (idempotent redelivery, S-10).
      */
-    private void process(ConsumerRecord<String, byte[]> record, java.util.function.Consumer<Envelope> action) {
-        Envelope envelope = envelopeCodec.decodeEnvelope(record.value());
-        applyIfNotProcessed(envelope, action);
-    }
-
     @Transactional
     void applyIfNotProcessed(Envelope envelope, java.util.function.Consumer<Envelope> action) {
         UUID messageId = envelope.getMessageId();

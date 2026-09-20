@@ -76,6 +76,25 @@ in the logs. `make smoke` is a fast liveness check; `make token` fetches a demo 
 `make help` for all targets. Build-only, no Docker: `./mvnw verify` (runs unit +
 Testcontainers integration tests).
 
+### Running on Kubernetes
+
+The same stack deploys to a local **minikube** cluster with one `helm install`, realising
+[ADR-0008](docs/adr/0008-helm-primary-kustomize-deferred.md): a `platform-lib` library chart
+holds the Deployment/Service/probe templates, four service charts are little more than their
+`values.yaml`, and `platform-umbrella` adds the in-cluster infrastructure (PostgreSQL with
+schema-per-service, single-broker Kafka in KRaft mode, Redis, Keycloak importing the same realm
+export). `make demo` then runs unchanged against the cluster through a port-forwarded gateway.
+
+```bash
+minikube start -p edmp --memory=8192 --cpus=4
+docker compose -f deploy/local/compose.yaml build && make k8s-images
+make k8s-install
+```
+
+The command-by-command walkthrough — including how to follow one saga across pods by its
+`correlationId`, and the failures worth knowing about — is
+[docs/deployment/kubernetes-minikube.md](docs/deployment/kubernetes-minikube.md).
+
 ### Developing in IntelliJ IDEA
 
 This is a standard **Maven multi-module** project — IntelliJ imports it natively:
@@ -105,6 +124,7 @@ editor.
 | REST API guide | [docs/api/REST-API-GUIDE.md](docs/api/REST-API-GUIDE.md) |
 | OpenAPI 3.1 spec | [shared/openapi/order-service.yaml](shared/openapi/order-service.yaml) |
 | Diagrams | [docs/diagrams/](docs/diagrams/) |
+| Kubernetes runbook (Helm, minikube) | [docs/deployment/kubernetes-minikube.md](docs/deployment/kubernetes-minikube.md) |
 | Roadmap | [docs/ROADMAP.md](docs/ROADMAP.md) |
 | Build log (order & status) | [docs/BUILD-LOG.md](docs/BUILD-LOG.md) |
 

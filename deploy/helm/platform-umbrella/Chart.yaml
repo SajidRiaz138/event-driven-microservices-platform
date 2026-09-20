@@ -1,0 +1,27 @@
+apiVersion: v2
+name: platform-umbrella
+description: |
+  One-command install of the whole event-driven order platform (ADR-0008): the four
+  Phase-1 services as subcharts, plus the infrastructure they need — PostgreSQL
+  (schema-per-service), Kafka in KRaft mode, Redis, and Keycloak importing the
+  version-controlled realm export.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: order-service
+    version: 0.1.0
+    repository: file://../charts/order-service
+    condition: order-service.enabled
+  - name: payment-service
+    version: 0.1.0
+    repository: file://../charts/payment-service
+    condition: payment-service.enabled
+  - name: inventory-service
+    version: 0.1.0
+    repository: file://../charts/inventory-service
+    condition: inventory-service.enabled
+  - name: api-gateway
+    version: 0.1.0
+    repository: file://../charts/api-gateway
+    condition: api-gateway.enabled

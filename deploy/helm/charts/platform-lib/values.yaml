@@ -1,0 +1,100 @@
+# Defaults for every service chart that includes platform-lib.
+#
+# A library chart's own values are NOT inherited by the charts that use it — Helm only
+# shares templates. This file is therefore documentation of the contract the templates
+# expect, and the source to copy from when adding a new service chart. Every service
+# chart repeats the keys it needs; the ones below are the values that are genuinely the
+# same for all four Phase-1 services.
+
+replicaCount: 1
+
+image:
+  repository: ""
+  tag: local
+  # IfNotPresent, so an image built into the cluster's own daemon is used and never
+  # re-pulled from a registry that has never heard of edmp/*.
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+component: ""
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+  automountServiceAccountToken: false
+
+service:
+  type: ClusterIP
+  port: 8080
+  portName: http
+  annotations: {}
+
+containerPort: 8080
+
+strategy:
+  type: RollingUpdate
+
+terminationGracePeriodSeconds: 30
+
+# Plain configuration. Anything secret goes in secretEnv.
+env: {}
+
+# [{name: ENV_NAME, secret: k8s-secret-name, key: key-in-secret}]
+secretEnv: []
+
+envFrom: []
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+
+probes:
+  startup:
+    enabled: true
+    path: /actuator/health/readiness
+    initialDelaySeconds: 15
+    periodSeconds: 5
+    timeoutSeconds: 3
+    # 5s * 36 = 3 minutes for Flyway plus the Kafka consumer-group join.
+    failureThreshold: 36
+  readiness:
+    enabled: true
+    path: /actuator/health/readiness
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  liveness:
+    enabled: true
+    path: /actuator/health/liveness
+    initialDelaySeconds: 0
+    periodSeconds: 20
+    timeoutSeconds: 3
+    failureThreshold: 5
+
+resources: {}
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 75
+  targetMemoryUtilizationPercentage: ""
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

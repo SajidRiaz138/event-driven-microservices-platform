@@ -1,0 +1,158 @@
+{{- if .Values.kafka.enabled }}
+{{/*
+Kafka 4.1.2, KRaft, one node in combined broker+controller mode — the same image tag the
+Testcontainers integration tests use.
+
+Two Services, for two different jobs:
+
+  kafka-headless   gives the pod a stable DNS name (kafka-0.kafka-headless...) for the
+                   controller quorum voter. publishNotReadyAddresses is not optional here:
+                   the broker resolves its own voter address while it is still starting, so
+                   the record has to exist before the pod is Ready. Without it the broker
+                   cannot form a quorum with itself and restarts forever.
+
+  kafka            is what clients use — `kafka:9092`, the same bootstrap string the
+                   compose stack uses, which is why the services need no new config.
+
+No PersistentVolumeClaim, matching compose: the broker is ephemeral, topics are
+auto-created on first use, and a demo that starts from an empty log is the point. A broker
+restart therefore loses topic data and the generated cluster id, which is fine here and
+would not be in production.
+*/}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-headless
+  labels:
+    {{- include "platform.labels" (dict "root" $ "name" "kafka" "component" "broker") | nindent 4 }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+    - name: kafka
+      port: 9092
+      targetPort: kafka
+    - name: controller
+      port: 9093
+      targetPort: controller
+  selector:
+    {{- include "platform.selectorLabels" (dict "root" $ "name" "kafka") | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+  labels:
+    {{- include "platform.labels" (dict "root" $ "name" "kafka" "component" "broker") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: kafka
+      port: 9092
+      targetPort: kafka
+  selector:
+    {{- include "platform.selectorLabels" (dict "root" $ "name" "kafka") | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka
+  labels:
+    {{- include "platform.labels" (dict "root" $ "name" "kafka" "component" "broker") | nindent 4 }}
+spec:
+  serviceName: kafka-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "platform.selectorLabels" (dict "root" $ "name" "kafka") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "platform.labels" (dict "root" $ "name" "kafka" "component" "broker") | nindent 8 }}
+    spec:
+      containers:
+        - name: kafka
+          image: "{{ .Values.kafka.image.repository }}:{{ .Values.kafka.image.tag }}"
+          imagePullPolicy: {{ .Values.kafka.image.pullPolicy }}
+          ports:
+            - name: kafka
+              containerPort: 9092
+            - name: controller
+              containerPort: 9093
+          env:
+            - name: KAFKA_NODE_ID
+              value: "1"
+            - name: KAFKA_PROCESS_ROLES
+              value: broker,controller
+            - name: KAFKA_LISTENERS
+              value: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+            {{/*
+              Advertised as the client Service name, so `kafka:9092` is what every client
+              is told to reconnect to after bootstrap. The CONTROLLER listener must never
+              appear here — Kafka refuses to start if a controller listener is advertised.
+            */}}
+            - name: KAFKA_ADVERTISED_LISTENERS
+              value: PLAINTEXT://kafka:9092
+            - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+              value: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+            - name: KAFKA_CONTROLLER_LISTENER_NAMES
+              value: CONTROLLER
+            - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+              value: 1@kafka-0.kafka-headless.{{ .Release.Namespace }}.svc.cluster.local:9093
+            - name: KAFKA_INTER_BROKER_LISTENER_NAME
+              value: PLAINTEXT
+            - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+              value: "1"
+            - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+              value: "1"
+            - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+              value: "1"
+            - name: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS
+              value: "0"
+            - name: KAFKA_NUM_PARTITIONS
+              value: {{ .Values.kafka.numPartitions | quote }}
+            {{/* Topic names are pinned by ADR-0010; provisioning them is not (ADR-0017). */}}
+            - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE
+              value: {{ .Values.kafka.autoCreateTopics | quote }}
+          {{/*
+            All three probes are socket checks, and the reason is worth recording.
+
+            The compose healthcheck for this container runs
+            `kafka-topics.sh --bootstrap-server localhost:9092 --list`, which is a better
+            check in principle — it proves the broker serves the metadata API, not merely
+            that something holds the port. Ported literally into Kubernetes it OOM-kills
+            the broker: kafka-topics.sh starts a SECOND JVM inside the same 1 GiB cgroup
+            as the broker, each JVM ergonomically claims a quarter of the limit, and the
+            cgroup OOM killer takes the biggest process — the broker. Observed here as
+            `Last State: Terminated, Reason: OOMKilled, Exit Code: 137` with the broker
+            restarting every time the probe fired, which in turn wiped the ephemeral log
+            dir and left every saga waiting for a reply that no longer existed.
+
+            So: socket probes, and the metadata check stays a deliberate manual step (the
+            runbook has it, run with a capped KAFKA_HEAP_OPTS). The broker reaches
+            "Kafka Server started" about four seconds after container start, so a socket
+            probe with this budget is a real gate rather than a formality.
+          */}}
+          startupProbe:
+            tcpSocket:
+              port: kafka
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+          readinessProbe:
+            tcpSocket:
+              port: kafka
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: kafka
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 5
+          resources:
+            {{- toYaml .Values.kafka.resources | nindent 12 }}
+{{- end }}

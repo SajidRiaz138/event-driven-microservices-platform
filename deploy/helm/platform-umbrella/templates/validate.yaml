@@ -1,0 +1,22 @@
+{{/*
+Fail the render, not the demo.
+
+The issuer is the one value in this chart that is duplicated by necessity: Keycloak has to
+be told what to stamp into `iss`, and each resource server has to be told what to compare
+it against. They live in different charts. If they drift, nothing fails at install time —
+every pod goes Ready and then every single request returns 401, which is a miserable thing
+to debug.
+
+So check it here. Each service's JWT_ISSUER_URI must equal the issuer derived from the
+keycloak values. A service that does not validate JWTs at all (payment, inventory) has no
+such key and is skipped.
+*/}}
+{{- $issuer := include "platform.issuerUri" . -}}
+{{- range $chart := list "order-service" "api-gateway" }}
+{{- $values := index $.Values $chart | default dict }}
+{{- $env := get $values "env" | default dict }}
+{{- $configured := get $env "JWT_ISSUER_URI" | default "" }}
+{{- if and $configured (ne $configured $issuer) }}
+{{- fail (printf "issuer mismatch: %s has JWT_ISSUER_URI=%q but Keycloak will stamp iss=%q (keycloak.hostname=%q, keycloak.realmName=%q). Every token would be rejected. Set them to the same string." $chart $configured $issuer $.Values.keycloak.hostname $.Values.keycloak.realmName) }}
+{{- end }}
+{{- end }}
