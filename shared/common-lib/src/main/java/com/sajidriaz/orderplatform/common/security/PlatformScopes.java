@@ -17,7 +17,8 @@ package com.sajidriaz.orderplatform.common.security;
  * kind of operation a caller may perform, never which rows they may see. Ownership stays in
  * the owning service (order-service answers 404 for somebody else's order, S-15).
  */
-public final class PlatformScopes {
+public final class PlatformScopes
+{
 
     /** View your own orders. */
     public static final String ORDERS_READ = "orders:read";
@@ -35,6 +36,7 @@ public final class PlatformScopes {
     public static final String AUTHORITY_ORDERS_WRITE = AUTHORITY_PREFIX + ORDERS_WRITE;
     public static final String AUTHORITY_ORDERS_WRITE_ANY = AUTHORITY_PREFIX + ORDERS_WRITE_ANY;
 
-    private PlatformScopes() {
+    private PlatformScopes()
+    {
     }
 }

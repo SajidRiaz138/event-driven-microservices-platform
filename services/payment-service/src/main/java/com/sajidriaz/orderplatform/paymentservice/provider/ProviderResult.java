@@ -11,11 +11,13 @@ package com.sajidriaz.orderplatform.paymentservice.provider;
  */
 public record ProviderResult(boolean approved, String providerReference, String failureReason) {
 
-    public static ProviderResult approved(String providerReference) {
+    public static ProviderResult approved(String providerReference)
+    {
         return new ProviderResult(true, providerReference, null);
     }
 
-    public static ProviderResult declined(String reason) {
+    public static ProviderResult declined(String reason)
+    {
         return new ProviderResult(false, null, reason);
     }
 }

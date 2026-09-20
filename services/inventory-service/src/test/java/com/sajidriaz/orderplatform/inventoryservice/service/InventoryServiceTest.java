@@ -38,9 +38,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-@ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
-class InventoryServiceTest {
+@ExtendWith (MockitoExtension.class)
+@MockitoSettings (strictness = Strictness.LENIENT)
+class InventoryServiceTest
+{
 
     private static final int DEFAULT_TTL = 900;
     private static final int MAX_TTL = 3600;
@@ -62,7 +63,8 @@ class InventoryServiceTest {
     private final UUID causationId = UUID.randomUUID();
 
     @BeforeEach
-    void setUp() {
+    void setUp()
+    {
         service = new InventoryService(stockItemRepository, reservationRepository, outboxWriter,
                 availabilityCache, DEFAULT_TTL, MAX_TTL);
         when(reservationRepository.findById(any())).thenReturn(Optional.empty());
@@ -71,7 +73,8 @@ class InventoryServiceTest {
     }
 
     @Test
-    void reserve_whenStockIsAvailable_savesReservationAndEmitsStockReserved() {
+    void reserve_whenStockIsAvailable_savesReservationAndEmitsStockReserved()
+    {
         when(stockItemRepository.tryReserve("SKU-1001", 2)).thenReturn(1);
 
         service.reserve(orderId, reservationId, List.of(line("SKU-1001", 2)), 600,
@@ -95,7 +98,8 @@ class InventoryServiceTest {
     }
 
     @Test
-    void reserve_isDecidedByTheConditionalUpdateResultNotByReadingAvailability() {
+    void reserve_isDecidedByTheConditionalUpdateResultNotByReadingAvailability()
+    {
         // The atomic UPDATE reports it changed nothing — the last unit went to someone else
         // between any read and this write. The service must fail the reservation on that result
         // alone. A read-then-write implementation would have "seen" stock and oversold.
@@ -113,7 +117,8 @@ class InventoryServiceTest {
     }
 
     @Test
-    void reserve_neverConsultsTheCacheForTheDecision() {
+    void reserve_neverConsultsTheCacheForTheDecision()
+    {
         when(stockItemRepository.tryReserve(anyString(), anyInt())).thenReturn(1);
 
         service.reserve(orderId, reservationId, List.of(line("SKU-1001", 1)), 600,
@@ -126,7 +131,8 @@ class InventoryServiceTest {
     }
 
     @Test
-    void reserve_whenALaterLineFails_releasesTheLinesAlreadyTaken() {
+    void reserve_whenALaterLineFails_releasesTheLinesAlreadyTaken()
+    {
         // SKUs are processed in sorted order, so SKU-1001 is taken before SKU-1002 fails.
         when(stockItemRepository.tryReserve("SKU-1001", 1)).thenReturn(1);
         when(stockItemRepository.tryReserve("SKU-1002", 5)).thenReturn(0);
@@ -145,7 +151,8 @@ class InventoryServiceTest {
     }
 
     @Test
-    void reserve_duplicateReservationId_holdsNoExtraStockAndReAffirmsTheReply() {
+    void reserve_duplicateReservationId_holdsNoExtraStockAndReAffirmsTheReply()
+    {
         ReservationEntity existing = activeReservation(reservationId, 2);
         when(reservationRepository.findById(reservationId)).thenReturn(Optional.of(existing));
 
@@ -161,7 +168,8 @@ class InventoryServiceTest {
     }
 
     @Test
-    void reserve_whenOrderAlreadyHasAnActiveReservationUnderAnotherId_doesNotDoubleHold() {
+    void reserve_whenOrderAlreadyHasAnActiveReservationUnderAnotherId_doesNotDoubleHold()
+    {
         // The orchestrator mints a fresh reservationId per attempt, so a retry arrives with an id
         // this service has never seen. Reserving again would silently hold the stock twice.
         UUID otherReservationId = UUID.randomUUID();
@@ -178,7 +186,8 @@ class InventoryServiceTest {
     }
 
     @Test
-    void reserve_ttlIsDefaultedWhenAbsentAndCappedWhenImplausible() {
+    void reserve_ttlIsDefaultedWhenAbsentAndCappedWhenImplausible()
+    {
         when(stockItemRepository.tryReserve(anyString(), anyInt())).thenReturn(1);
 
         service.reserve(orderId, reservationId, List.of(line("SKU-1001", 1)), 0,
@@ -195,7 +204,8 @@ class InventoryServiceTest {
     }
 
     @Test
-    void release_returnsStockAndEmitsStockReleased() {
+    void release_returnsStockAndEmitsStockReleased()
+    {
         ReservationEntity existing = activeReservation(reservationId, 3);
         when(reservationRepository.findById(reservationId)).thenReturn(Optional.of(existing));
         when(stockItemRepository.releaseReserved("SKU-1001", 3)).thenReturn(1);
@@ -211,7 +221,8 @@ class InventoryServiceTest {
     }
 
     @Test
-    void release_fallsBackToTheOrdersActiveReservationWhenTheCommandsIdMatchesNothing() {
+    void release_fallsBackToTheOrdersActiveReservationWhenTheCommandsIdMatchesNothing()
+    {
         // ReleaseStock.reservationId from the orchestrator is a fresh random UUID: it does not
         // persist the id this service issued. The order id is the only reliable handle.
         UUID unknownId = UUID.randomUUID();
@@ -227,7 +238,8 @@ class InventoryServiceTest {
     }
 
     @Test
-    void release_isIdempotent_alreadyReleasedStillRepliesWithoutTouchingStock() {
+    void release_isIdempotent_alreadyReleasedStillRepliesWithoutTouchingStock()
+    {
         ReservationEntity existing = activeReservation(reservationId, 3);
         existing.resolve(ReservationStatus.RELEASED, Instant.now());
         when(reservationRepository.findById(reservationId)).thenReturn(Optional.of(existing));
@@ -241,7 +253,8 @@ class InventoryServiceTest {
     }
 
     @Test
-    void release_whenNothingMatchesAtAll_stillRepliesReleased() {
+    void release_whenNothingMatchesAtAll_stillRepliesReleased()
+    {
         service.release(orderId, UUID.randomUUID(), correlationId, causationId);
 
         verify(stockItemRepository, never()).releaseReserved(anyString(), anyInt());
@@ -250,7 +263,8 @@ class InventoryServiceTest {
     }
 
     @Test
-    void release_refusesToUnsellACommittedReservation() {
+    void release_refusesToUnsellACommittedReservation()
+    {
         ReservationEntity existing = activeReservation(reservationId, 3);
         existing.resolve(ReservationStatus.COMMITTED, Instant.now());
         when(reservationRepository.findById(reservationId)).thenReturn(Optional.of(existing));
@@ -264,7 +278,8 @@ class InventoryServiceTest {
     }
 
     @Test
-    void commitForConfirmedOrder_removesStockFromOnHandAndEmitsNothing() {
+    void commitForConfirmedOrder_removesStockFromOnHandAndEmitsNothing()
+    {
         ReservationEntity existing = activeReservation(reservationId, 2);
         when(reservationRepository.findActiveByOrderId(orderId)).thenReturn(Optional.of(existing));
         when(stockItemRepository.commitReserved("SKU-1001", 2)).thenReturn(1);
@@ -280,7 +295,8 @@ class InventoryServiceTest {
     }
 
     @Test
-    void commitForConfirmedOrder_withNoActiveReservationIsANoOp() {
+    void commitForConfirmedOrder_withNoActiveReservationIsANoOp()
+    {
         service.commitForConfirmedOrder(orderId);
 
         verify(stockItemRepository, never()).commitReserved(anyString(), anyInt());
@@ -288,7 +304,8 @@ class InventoryServiceTest {
     }
 
     @Test
-    void expire_returnsStockAndAnnouncesReleaseUsingTheStoredCorrelationId() {
+    void expire_returnsStockAndAnnouncesReleaseUsingTheStoredCorrelationId()
+    {
         ReservationEntity existing = activeReservation(reservationId, 4);
         when(stockItemRepository.releaseReserved("SKU-1001", 4)).thenReturn(1);
 
@@ -307,7 +324,8 @@ class InventoryServiceTest {
     }
 
     @Test
-    void expire_onAnAlreadyResolvedReservationDoesNothing() {
+    void expire_onAnAlreadyResolvedReservationDoesNothing()
+    {
         ReservationEntity existing = activeReservation(reservationId, 4);
         existing.resolve(ReservationStatus.RELEASED, Instant.now());
 
@@ -319,19 +337,23 @@ class InventoryServiceTest {
 
     // ---------------------------------------------------------------------
 
-    private InventoryService.RequestedLine line(String sku, int quantity) {
+    private InventoryService.RequestedLine line(String sku, int quantity)
+    {
         return new InventoryService.RequestedLine(sku, quantity);
     }
 
-    private ReservationEntity activeReservation(UUID id, int quantity) {
+    private ReservationEntity activeReservation(UUID id, int quantity)
+    {
         ReservationEntity reservation =
                 new ReservationEntity(id, orderId, Instant.now().plusSeconds(900), correlationId);
         reservation.addLine("SKU-1001", quantity);
         return reservation;
     }
 
-    private <T extends SpecificRecordBase> T capturedEvent(Class<T> type, String expectedMessageType,
-                                                           String expectedTopic) {
+    private <T extends SpecificRecordBase> T capturedEvent(Class<T> type,
+                                                           String expectedMessageType,
+                                                           String expectedTopic)
+    {
         ArgumentCaptor<SpecificRecordBase> payload = ArgumentCaptor.forClass(SpecificRecordBase.class);
         verify(outboxWriter).append(eq(MessageKind.EVENT), eq(expectedMessageType), eq(expectedTopic),
                 any(), any(), eq(orderId), payload.capture());

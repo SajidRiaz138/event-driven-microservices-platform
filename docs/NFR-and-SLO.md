@@ -1,8 +1,9 @@
 # Non-Functional Requirements (NFRs) & Service-Level Objectives (SLOs)
 
 This page states the platform's quality targets in concrete, measurable terms.
-Numbers are the *design targets* the architecture is built to meet and against which
-load tests (`testing/load/`) and dashboards (`platform/observability/`) are calibrated.
+Numbers are the *design targets* the architecture is built to meet. They are validated by
+**planned load tests (Phase 2, see [ROADMAP](ROADMAP.md))** and observed on the
+observability dashboards; the targets are stated now so the design is accountable to them.
 
 ## 1. Latency (SLO)
 

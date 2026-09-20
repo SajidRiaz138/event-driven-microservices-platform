@@ -6,5 +6,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface IdempotencyKeyRepository
-        extends JpaRepository<IdempotencyKeyEntity, IdempotencyKeyEntity.Key> {
+        extends JpaRepository<IdempotencyKeyEntity, IdempotencyKeyEntity.Key>
+{
 }

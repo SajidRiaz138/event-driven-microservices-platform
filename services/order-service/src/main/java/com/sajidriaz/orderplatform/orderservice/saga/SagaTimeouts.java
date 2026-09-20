@@ -26,7 +26,7 @@ import java.time.Duration;
  *                                     {@link SagaOrchestrator#onStepTimeout(java.util.UUID)}.
  */
 public record SagaTimeouts(int reservationTtlSeconds,
-                            Duration awaitStockReservation,
-                            Duration awaitPaymentAuthorization,
-                            Duration awaitPaymentCapture) {
+        Duration awaitStockReservation,
+        Duration awaitPaymentAuthorization,
+        Duration awaitPaymentCapture) {
 }

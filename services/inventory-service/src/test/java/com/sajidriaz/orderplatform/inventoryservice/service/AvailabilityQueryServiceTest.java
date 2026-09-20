@@ -15,21 +15,24 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class AvailabilityQueryServiceTest {
+class AvailabilityQueryServiceTest
+{
 
     private InventoryService inventoryService;
     private AvailabilityCache cache;
     private AvailabilityQueryService service;
 
     @BeforeEach
-    void setUp() {
+    void setUp()
+    {
         inventoryService = mock(InventoryService.class);
         cache = new InMemoryAvailabilityCache();
         service = new AvailabilityQueryService(inventoryService, cache, new SimpleMeterRegistry());
     }
 
     @Test
-    void firstReadMissesAndPopulatesTheCache_secondIsServedFromIt() {
+    void firstReadMissesAndPopulatesTheCache_secondIsServedFromIt()
+    {
         when(inventoryService.availableFromDatabase("SKU-1001")).thenReturn(Optional.of(7));
 
         assertThat(service.availableForDisplay("SKU-1001")).contains(7);
@@ -41,7 +44,8 @@ class AvailabilityQueryServiceTest {
     }
 
     @Test
-    void anUnknownSkuIsNotCached() {
+    void anUnknownSkuIsNotCached()
+    {
         when(inventoryService.availableFromDatabase("SKU-NOPE")).thenReturn(Optional.empty());
 
         assertThat(service.availableForDisplay("SKU-NOPE")).isEmpty();
@@ -53,7 +57,8 @@ class AvailabilityQueryServiceTest {
     }
 
     @Test
-    void invalidationMakesTheNextReadGoBackToTheDatabase() {
+    void invalidationMakesTheNextReadGoBackToTheDatabase()
+    {
         when(inventoryService.availableFromDatabase("SKU-1001"))
                 .thenReturn(Optional.of(7))
                 .thenReturn(Optional.of(5));
@@ -66,7 +71,8 @@ class AvailabilityQueryServiceTest {
     }
 
     @Test
-    void aCacheThatFailsEveryOperationStillYieldsCorrectReads() {
+    void aCacheThatFailsEveryOperationStillYieldsCorrectReads()
+    {
         // A broken cache must degrade to reading the database, never fail the request: this read is
         // display-only and does not justify an outage.
         AvailabilityCache brokenCache = mock(AvailabilityCache.class);

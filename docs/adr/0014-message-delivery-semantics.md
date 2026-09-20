@@ -76,5 +76,5 @@ ADR pins them down so the behaviour is deterministic and reviewable.
 - **Negative:** Manual offset handling and retry-topic tiers are more code than
   auto-commit; centralised in `common-lib` so services do not each reinvent it.
 - **Related:** ADR-0004 (outbox), ADR-0005 (idempotency), ADR-0006 (DLQ/retry),
-  ADR-0003 (saga deadlines). Backoff numbers are validated under load
-  (`testing/load/`) and surfaced on the observability dashboards (ADR-0013).
+  ADR-0003 (saga deadlines). Backoff numbers are validated under **planned load tests
+  (Phase 2, see ROADMAP)** and surfaced on the observability dashboards (ADR-0013).

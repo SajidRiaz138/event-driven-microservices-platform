@@ -26,8 +26,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest
 @Testcontainers
-@EnabledIfEnvironmentVariable(named = "DOCKER_AVAILABLE", matches = "true")
-class InventoryServiceApplicationIT {
+@EnabledIfEnvironmentVariable (named = "DOCKER_AVAILABLE", matches = "true")
+class InventoryServiceApplicationIT
+{
 
     @Container
     static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:17.6")
@@ -36,7 +37,8 @@ class InventoryServiceApplicationIT {
             .withPassword("testpass");
 
     @DynamicPropertySource
-    static void properties(DynamicPropertyRegistry registry) {
+    static void properties(DynamicPropertyRegistry registry)
+    {
         registry.add("spring.datasource.url", postgres::getJdbcUrl);
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
@@ -47,7 +49,8 @@ class InventoryServiceApplicationIT {
     private JdbcTemplate jdbc;
 
     @Test
-    void contextLoadsAndTheSchemaIsOwnedByThisService() {
+    void contextLoadsAndTheSchemaIsOwnedByThisService()
+    {
         // Schema per service (ADR-0007): the tables live in `inventory`, not in public.
         List<Map<String, Object>> tables = jdbc.queryForList("""
                 select table_schema, table_name from information_schema.tables
@@ -57,10 +60,9 @@ class InventoryServiceApplicationIT {
                 """);
 
         assertThat(tables).hasSize(5);
-        assertThat(tables).allSatisfy(row ->
-                assertThat(row.get("table_schema"))
-                        .as("tables must be owned by this service's own schema, found %s", row)
-                        .isEqualTo("inventory"));
+        assertThat(tables).allSatisfy(row -> assertThat(row.get("table_schema"))
+                .as("tables must be owned by this service's own schema, found %s", row)
+                .isEqualTo("inventory"));
 
         // The seeded SKUs the order-service price catalog knows about.
         Integer seeded = jdbc.queryForObject(
@@ -69,13 +71,14 @@ class InventoryServiceApplicationIT {
     }
 
     @Test
-    void theDatabaseItselfRefusesToOversell() {
+    void theDatabaseItselfRefusesToOversell()
+    {
         // The application's conditional UPDATE is what makes reservation correct, but the CHECK
         // constraint means even a direct SQL statement cannot reserve more than is on hand.
         jdbc.update("insert into inventory.stock_item (sku, on_hand, reserved) values ('SKU-CHECK', 2, 0)");
 
-        assertThat(org.assertj.core.api.Assertions.catchThrowable(() ->
-                jdbc.update("update inventory.stock_item set reserved = 3 where sku = 'SKU-CHECK'")))
+        assertThat(org.assertj.core.api.Assertions
+                .catchThrowable(() -> jdbc.update("update inventory.stock_item set reserved = 3 where sku = 'SKU-CHECK'")))
                 .as("reserved must never be allowed to exceed on_hand")
                 .isNotNull();
 

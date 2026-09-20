@@ -32,7 +32,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * call with the same key returns the original outcome and does not charge twice. That is what the
  * service's retry behaviour relies on, so a stub without it would prove nothing.
  */
-public class StubPaymentProvider implements PaymentProvider {
+public class StubPaymentProvider implements PaymentProvider
+{
 
     private static final Logger log = LoggerFactory.getLogger(StubPaymentProvider.class);
 
@@ -50,7 +51,8 @@ public class StubPaymentProvider implements PaymentProvider {
     public StubPaymentProvider(List<String> declineTokens,
                                List<String> captureTimeoutCapturedTokens,
                                List<String> captureTimeoutLostTokens,
-                               List<String> captureTimeoutUnanswerableTokens) {
+                               List<String> captureTimeoutUnanswerableTokens)
+    {
         this.declineTokens = List.copyOf(declineTokens);
         this.captureTimeoutCapturedTokens = List.copyOf(captureTimeoutCapturedTokens);
         this.captureTimeoutLostTokens = List.copyOf(captureTimeoutLostTokens);
@@ -58,29 +60,35 @@ public class StubPaymentProvider implements PaymentProvider {
     }
 
     @Override
-    public ProviderResult authorize(ProviderCall call) {
+    public ProviderResult authorize(ProviderCall call)
+    {
         ProviderResult existing = effects.get(call.providerIdempotencyKey());
-        if (existing != null) {
+        if (existing != null)
+        {
             log.info("Provider: authorize replayed from idempotency key {}", call.providerIdempotencyKey());
             return existing;
         }
-        if (declineTokens.contains(call.paymentMethodToken())) {
+        if (declineTokens.contains(call.paymentMethodToken()))
+        {
             return record(call, ProviderResult.declined("card_declined"));
         }
         return record(call, ProviderResult.approved("auth_" + shortRef(call)));
     }
 
     @Override
-    public ProviderResult capture(ProviderCall call) {
+    public ProviderResult capture(ProviderCall call)
+    {
         ProviderResult existing = effects.get(call.providerIdempotencyKey());
-        if (existing != null) {
+        if (existing != null)
+        {
             // The provider collapsing a retry into the original effect: this is why reusing the
             // idempotency key cannot double-charge, even after an UNKNOWN outcome.
             log.info("Provider: capture replayed from idempotency key {}", call.providerIdempotencyKey());
             return existing;
         }
 
-        if (captureTimeoutCapturedTokens.contains(call.paymentMethodToken())) {
+        if (captureTimeoutCapturedTokens.contains(call.paymentMethodToken()))
+        {
             // The money moves, then the response is lost. The caller cannot tell this apart from
             // the case below — which is exactly the point.
             String reference = "cap_" + shortRef(call);
@@ -90,13 +98,15 @@ public class StubPaymentProvider implements PaymentProvider {
             throw new ProviderTimeoutException("capture response lost", null);
         }
 
-        if (captureTimeoutLostTokens.contains(call.paymentMethodToken())) {
+        if (captureTimeoutLostTokens.contains(call.paymentMethodToken()))
+        {
             log.warn("Provider: capture did not complete and the response was lost (key {})",
                     call.providerIdempotencyKey());
             throw new ProviderTimeoutException("capture response lost", null);
         }
 
-        if (captureTimeoutUnanswerableTokens.contains(call.paymentMethodToken())) {
+        if (captureTimeoutUnanswerableTokens.contains(call.paymentMethodToken()))
+        {
             // The provider will keep answering "still processing" when asked. The operation must
             // stay UNKNOWN indefinitely rather than being resolved on a guess.
             unanswerableKeys.add(call.providerIdempotencyKey());
@@ -105,30 +115,36 @@ public class StubPaymentProvider implements PaymentProvider {
             throw new ProviderTimeoutException("capture outcome indeterminate", null);
         }
 
-        if (declineTokens.contains(call.paymentMethodToken())) {
+        if (declineTokens.contains(call.paymentMethodToken()))
+        {
             return record(call, ProviderResult.declined("capture_declined"));
         }
         return record(call, ProviderResult.approved("cap_" + shortRef(call)));
     }
 
     @Override
-    public ProviderResult refund(ProviderCall call) {
+    public ProviderResult refund(ProviderCall call)
+    {
         ProviderResult existing = effects.get(call.providerIdempotencyKey());
-        if (existing != null) {
+        if (existing != null)
+        {
             return existing;
         }
         return record(call, ProviderResult.approved("ref_" + shortRef(call)));
     }
 
     @Override
-    public Optional<ProviderResult> lookup(String providerIdempotencyKey) {
-        if (unanswerableKeys.contains(providerIdempotencyKey)) {
+    public Optional<ProviderResult> lookup(String providerIdempotencyKey)
+    {
+        if (unanswerableKeys.contains(providerIdempotencyKey))
+        {
             // "Still processing": the provider genuinely cannot say. An empty result is the only
             // honest answer, and the caller must leave the operation UNKNOWN rather than guess.
             return Optional.empty();
         }
         ProviderResult recorded = effects.get(providerIdempotencyKey);
-        if (recorded != null) {
+        if (recorded != null)
+        {
             return Optional.of(recorded);
         }
         // The provider has no record of this key at all, which for an idempotency-keyed API means
@@ -136,12 +152,14 @@ public class StubPaymentProvider implements PaymentProvider {
         return Optional.of(ProviderResult.declined("no_such_operation"));
     }
 
-    private ProviderResult record(ProviderCall call, ProviderResult result) {
+    private ProviderResult record(ProviderCall call, ProviderResult result)
+    {
         effects.put(call.providerIdempotencyKey(), result);
         return result;
     }
 
-    private String shortRef(ProviderCall call) {
+    private String shortRef(ProviderCall call)
+    {
         return Integer.toHexString(call.providerIdempotencyKey().hashCode());
     }
 }

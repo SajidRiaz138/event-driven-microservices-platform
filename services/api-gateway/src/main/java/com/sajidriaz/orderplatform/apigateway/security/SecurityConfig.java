@@ -39,16 +39,18 @@ import org.springframework.security.web.SecurityFilterChain;
  */
 @Configuration
 @EnableWebSecurity
-public class SecurityConfig {
+public class SecurityConfig
+{
 
     private final String jwkSetUri;
     private final String issuerUri;
     private final GatewayProperties gatewayProperties;
 
     public SecurityConfig(
-            @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}") String jwkSetUri,
-            @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUri,
-            GatewayProperties gatewayProperties) {
+                          @Value ("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}") String jwkSetUri,
+                          @Value ("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUri,
+                          GatewayProperties gatewayProperties)
+    {
         this.jwkSetUri = jwkSetUri;
         this.issuerUri = issuerUri;
         this.gatewayProperties = gatewayProperties;
@@ -56,35 +58,41 @@ public class SecurityConfig {
 
     /** The same four checks every service applies — RS256 signature via JWKS, issuer, audience, expiry. */
     @Bean
-    public JwtDecoder jwtDecoder() {
+    public JwtDecoder jwtDecoder()
+    {
         return PlatformJwtDecoders.rs256(jwkSetUri, issuerUri, gatewayProperties.audience());
     }
 
     @Bean
-    public TokenBucketRateLimiter rateLimiter() {
+    public TokenBucketRateLimiter rateLimiter()
+    {
         GatewayProperties.RateLimit rateLimit = gatewayProperties.rateLimit();
         return new TokenBucketRateLimiter(rateLimit.capacity(), rateLimit.refillPerSecond());
     }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                                    JwtDecoder jwtDecoder,
-                                                    TokenBucketRateLimiter rateLimiter,
-                                                    ProblemDetailAuthenticationEntryPoint authenticationEntryPoint,
-                                                    ProblemDetailAccessDeniedHandler accessDeniedHandler)
-            throws Exception {
+                                                   JwtDecoder jwtDecoder,
+                                                   TokenBucketRateLimiter rateLimiter,
+                                                   ProblemDetailAuthenticationEntryPoint authenticationEntryPoint,
+                                                   ProblemDetailAccessDeniedHandler accessDeniedHandler)
+                                                                                                         throws Exception
+    {
         http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(requests -> requests
-                        .requestMatchers("/actuator/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/token").permitAll()
+                        .requestMatchers("/actuator/**")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/token")
+                        .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/orders")
                         .hasAnyAuthority(PlatformScopes.AUTHORITY_ORDERS_WRITE,
                                 PlatformScopes.AUTHORITY_ORDERS_WRITE_ANY)
                         .requestMatchers(HttpMethod.GET, "/api/v1/orders/**")
                         .hasAuthority(PlatformScopes.AUTHORITY_ORDERS_READ)
-                        .anyRequest().authenticated())
+                        .anyRequest()
+                        .authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler)
@@ -93,7 +101,8 @@ public class SecurityConfig {
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler));
 
-        if (gatewayProperties.rateLimit().enabled()) {
+        if (gatewayProperties.rateLimit().enabled())
+        {
             // After authentication so the bucket can be keyed by `sub`, and constructed here
             // rather than published as a Filter bean: Spring Boot registers every Filter bean
             // with the servlet container as well, which would apply the limit twice and charge

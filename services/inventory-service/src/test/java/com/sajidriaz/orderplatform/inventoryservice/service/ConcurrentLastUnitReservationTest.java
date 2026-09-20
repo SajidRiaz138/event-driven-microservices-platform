@@ -40,12 +40,14 @@ import static org.mockito.Mockito.when;
  * {@code InventoryReservationIT.concurrentReservationsForTheLastUnit_exactlyOneSucceeds}. Both
  * matter: the SQL could be right while the service ignored its result, and vice versa.
  */
-class ConcurrentLastUnitReservationTest {
+class ConcurrentLastUnitReservationTest
+{
 
     private static final String SKU = "SKU-LAST-UNIT";
 
     @Test
-    void concurrentReservationsForTheLastUnit_exactlyOneSucceeds() throws Exception {
+    void concurrentReservationsForTheLastUnit_exactlyOneSucceeds() throws Exception
+    {
         int contenders = 16;
         AtomicSku stock = new AtomicSku(1);
 
@@ -63,25 +65,35 @@ class ConcurrentLastUnitReservationTest {
         CountDownLatch startLine = new CountDownLatch(1);
         CountDownLatch finished = new CountDownLatch(contenders);
         ExecutorService pool = Executors.newFixedThreadPool(contenders);
-        try {
-            for (int i = 0; i < contenders; i++) {
-                pool.submit(() -> {
-                    try {
+        try
+        {
+            for (int i = 0; i < contenders; i++)
+            {
+                pool.submit(() ->
+                {
+                    try
+                    {
                         // Release them all at once: staggered starts would not contend.
                         startLine.await();
                         service.reserve(UUID.randomUUID(), UUID.randomUUID(),
                                 List.of(new InventoryService.RequestedLine(SKU, 1)), 600,
                                 UUID.randomUUID(), UUID.randomUUID());
-                    } catch (InterruptedException e) {
+                    }
+                    catch (InterruptedException e)
+                    {
                         Thread.currentThread().interrupt();
-                    } finally {
+                    }
+                    finally
+                    {
                         finished.countDown();
                     }
                 });
             }
             startLine.countDown();
             assertThat(finished.await(30, TimeUnit.SECONDS)).isTrue();
-        } finally {
+        }
+        finally
+        {
             pool.shutdownNow();
         }
 
@@ -100,7 +112,8 @@ class ConcurrentLastUnitReservationTest {
      * Mirrors {@code StockItemRepository.tryReserve}'s contract: one atomic step that takes the
      * quantity only if enough is available, returning the number of rows changed.
      */
-    private StockItemRepository fakeStockRepository(AtomicSku stock) {
+    private StockItemRepository fakeStockRepository(AtomicSku stock)
+    {
         StockItemRepository repository = mock(StockItemRepository.class);
         when(repository.existsById(anyString())).thenReturn(true);
         when(repository.tryReserve(anyString(), any(Integer.class)))
@@ -111,44 +124,56 @@ class ConcurrentLastUnitReservationTest {
     }
 
     /** A single SKU's quantities behind a compare-and-set, standing in for the database row. */
-    private static final class AtomicSku {
+    private static final class AtomicSku
+    {
 
         private final int onHand;
         private final AtomicInteger reserved = new AtomicInteger();
 
-        AtomicSku(int onHand) {
+        AtomicSku(int onHand)
+        {
             this.onHand = onHand;
         }
 
-        int tryReserve(int quantity) {
-            while (true) {
+        int tryReserve(int quantity)
+        {
+            while (true)
+            {
                 int current = reserved.get();
-                if (onHand - current < quantity) {
+                if (onHand - current < quantity)
+                {
                     return 0;
                 }
-                if (reserved.compareAndSet(current, current + quantity)) {
+                if (reserved.compareAndSet(current, current + quantity))
+                {
                     return 1;
                 }
             }
         }
 
-        int release(int quantity) {
-            while (true) {
+        int release(int quantity)
+        {
+            while (true)
+            {
                 int current = reserved.get();
-                if (current < quantity) {
+                if (current < quantity)
+                {
                     return 0;
                 }
-                if (reserved.compareAndSet(current, current - quantity)) {
+                if (reserved.compareAndSet(current, current - quantity))
+                {
                     return 1;
                 }
             }
         }
 
-        int reserved() {
+        int reserved()
+        {
             return reserved.get();
         }
 
-        int available() {
+        int available()
+        {
             return onHand - reserved.get();
         }
     }
@@ -158,21 +183,30 @@ class ConcurrentLastUnitReservationTest {
      * designed for sixteen threads calling it at once, and a flaky concurrency test is worse than
      * none.
      */
-    private static final class RecordingOutboxWriter extends OutboxWriter {
+    private static final class RecordingOutboxWriter extends OutboxWriter
+    {
 
         private final Map<String, AtomicInteger> counts = new ConcurrentHashMap<>();
 
-        RecordingOutboxWriter() {
+        RecordingOutboxWriter()
+        {
             super(null, null);
         }
 
         @Override
-        public void append(MessageKind kind, String type, String topic, UUID correlationId,
-                           UUID causationId, UUID aggregateId, SpecificRecordBase payload) {
+        public void append(MessageKind kind,
+                           String type,
+                           String topic,
+                           UUID correlationId,
+                           UUID causationId,
+                           UUID aggregateId,
+                           SpecificRecordBase payload)
+        {
             counts.computeIfAbsent(type, key -> new AtomicInteger()).incrementAndGet();
         }
 
-        int count(String type) {
+        int count(String type)
+        {
             AtomicInteger counter = counts.get(type);
             return counter == null ? 0 : counter.get();
         }

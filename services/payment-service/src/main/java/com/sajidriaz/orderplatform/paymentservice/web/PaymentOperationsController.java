@@ -23,20 +23,24 @@ import java.util.UUID;
  * the gateway lands this belongs behind authentication and an operator authorization check.
  */
 @RestController
-@RequestMapping("/api/v1/payments")
-public class PaymentOperationsController {
+@RequestMapping ("/api/v1/payments")
+public class PaymentOperationsController
+{
 
     private final PaymentService paymentService;
 
-    public PaymentOperationsController(PaymentService paymentService) {
+    public PaymentOperationsController(PaymentService paymentService)
+    {
         this.paymentService = paymentService;
     }
 
     /** The operations recorded for an order, oldest first. 404 when the order is unknown here. */
-    @GetMapping("/orders/{orderId}/operations")
-    public ResponseEntity<List<OperationView>> operations(@PathVariable UUID orderId) {
+    @GetMapping ("/orders/{orderId}/operations")
+    public ResponseEntity<List<OperationView>> operations(@PathVariable UUID orderId)
+    {
         List<PaymentOperationEntity> operations = paymentService.operationsForOrder(orderId);
-        if (operations.isEmpty()) {
+        if (operations.isEmpty())
+        {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(operations.stream().map(OperationView::of).toList());
@@ -47,10 +51,11 @@ public class PaymentOperationsController {
      *               genuinely not established, not that it failed
      */
     public record OperationView(UUID operationId, String type, String status, String providerReference,
-                                long amountMinorUnits, String currency, String failureReason,
-                                int reconcileAttempts, Instant createdAt, Instant updatedAt) {
+            long amountMinorUnits, String currency, String failureReason,
+            int reconcileAttempts, Instant createdAt, Instant updatedAt) {
 
-        static OperationView of(PaymentOperationEntity operation) {
+        static OperationView of(PaymentOperationEntity operation)
+        {
             return new OperationView(
                     operation.getId(),
                     operation.getOperationType().name(),

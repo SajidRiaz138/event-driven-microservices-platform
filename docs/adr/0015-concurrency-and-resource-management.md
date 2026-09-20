@@ -82,8 +82,8 @@ end-to-end concurrency model so behaviour under load is intentional.
 - **Positive:** Behaviour under overload is intentional — load is shed early at the
   admission gate (429) instead of degrading everyone; the DB pool is protected; the
   throughput ceiling is explicit and tunable; oversell is structurally impossible.
-- **Negative:** More configuration and an admission gate to maintain; requires load
-  testing (`testing/load/`) to tune pool/semaphore sizes against the 500 orders/sec
+- **Negative:** More configuration and an admission gate to maintain; requires **planned
+  load testing (Phase 2, see ROADMAP)** to tune pool/semaphore sizes against the 500 orders/sec
   target. Accepted — this *is* the scalability story.
 - **Related:** NFR §3, §4, §8; ADR-0007 (persistence), ADR-0013 (pool/saturation
   metrics on dashboards).

@@ -18,8 +18,7 @@ public record OrderResponse(
         List<OrderLineResponse> lines,
         MoneyResponse totalAmount,
         Instant createdAt,
-        Instant updatedAt
-) {
+        Instant updatedAt) {
 
     public record OrderLineResponse(String sku, int quantity, MoneyResponse unitPrice, MoneyResponse lineTotal) {
     }

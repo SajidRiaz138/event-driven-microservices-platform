@@ -8,7 +8,8 @@ package com.sajidriaz.orderplatform.common.messaging;
  * {@code Envelope.schemaVersion} and in the topic name), matching the strings
  * order-service already publishes.
  */
-public final class MessageTypes {
+public final class MessageTypes
+{
 
     public static final String EVENT_ORDER_CREATED = "events.order.created";
     public static final String EVENT_ORDER_CONFIRMED = "events.order.confirmed";
@@ -31,6 +32,7 @@ public final class MessageTypes {
     public static final String COMMAND_PAYMENT_CAPTURE = "commands.payment.capture";
     public static final String COMMAND_PAYMENT_REFUND = "commands.payment.refund";
 
-    private MessageTypes() {
+    private MessageTypes()
+    {
     }
 }

@@ -27,7 +27,8 @@ import java.util.List;
  * and read by nobody, and {@code CancellationReason.ORDER_TIMEOUT} was unreachable.
  */
 @Component
-public class SagaTimeoutSweeper {
+public class SagaTimeoutSweeper
+{
 
     private static final Logger log = LoggerFactory.getLogger(SagaTimeoutSweeper.class);
 
@@ -36,22 +37,26 @@ public class SagaTimeoutSweeper {
     private final int batchSize;
 
     public SagaTimeoutSweeper(SagaInstanceRepository sagaInstanceRepository,
-                               SagaOrchestrator sagaOrchestrator,
-                               @Value("${order-platform.saga.timeout-sweep.batch-size:50}") int batchSize) {
+                              SagaOrchestrator sagaOrchestrator,
+                              @Value ("${order-platform.saga.timeout-sweep.batch-size:50}") int batchSize)
+    {
         this.sagaInstanceRepository = sagaInstanceRepository;
         this.sagaOrchestrator = sagaOrchestrator;
         this.batchSize = batchSize;
     }
 
-    @Scheduled(fixedDelayString = "${order-platform.saga.timeout-sweep.fixed-delay-ms:1000}")
+    @Scheduled (fixedDelayString = "${order-platform.saga.timeout-sweep.fixed-delay-ms:1000}")
     @Transactional
-    public void sweepExpiredDeadlines() {
+    public void sweepExpiredDeadlines()
+    {
         List<SagaInstanceEntity> expired = sagaInstanceRepository.lockExpiredDeadlines(Instant.now(), batchSize);
-        if (expired.isEmpty()) {
+        if (expired.isEmpty())
+        {
             return;
         }
         log.info("Sweeping {} saga(s) past their step deadline", expired.size());
-        for (SagaInstanceEntity saga : expired) {
+        for (SagaInstanceEntity saga : expired)
+        {
             sagaOrchestrator.onStepTimeout(saga.getOrderId());
         }
     }

@@ -13,12 +13,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * stop money being lost or taken twice, so each is asserted directly rather than inferred from
  * higher-level behaviour.
  */
-class PaymentOperationEntityTest {
+class PaymentOperationEntityTest
+{
 
     private static final Money AMOUNT = Money.of(1999, "USD");
 
     @Test
-    void anOperationStartsPendingBeforeTheProviderIsCalled() {
+    void anOperationStartsPendingBeforeTheProviderIsCalled()
+    {
         PaymentOperationEntity operation = operation(OperationType.CAPTURE);
 
         // PENDING exists so a crash mid-call leaves evidence that the call was made, rather than no
@@ -29,7 +31,8 @@ class PaymentOperationEntityTest {
     }
 
     @Test
-    void aTimeoutRecordsUnknown_whichIsNeitherSuccessNorFailure() {
+    void aTimeoutRecordsUnknown_whichIsNeitherSuccessNorFailure()
+    {
         PaymentOperationEntity operation = operation(OperationType.CAPTURE);
 
         operation.markUnknown("cap_ref_1");
@@ -43,7 +46,8 @@ class PaymentOperationEntityTest {
     }
 
     @Test
-    void unknownCanBeResolvedEitherWay_butOnlyPositively() {
+    void unknownCanBeResolvedEitherWay_butOnlyPositively()
+    {
         PaymentOperationEntity captured = operation(OperationType.CAPTURE);
         captured.markUnknown(null);
         captured.resolve(OperationStatus.SUCCEEDED, "cap_ref_2", null);
@@ -60,7 +64,8 @@ class PaymentOperationEntityTest {
     }
 
     @Test
-    void resolvingToAnUnresolvedStatusIsRejected() {
+    void resolvingToAnUnresolvedStatusIsRejected()
+    {
         PaymentOperationEntity operation = operation(OperationType.CAPTURE);
 
         assertThatThrownBy(() -> operation.resolve(OperationStatus.PENDING, null, null))
@@ -70,7 +75,8 @@ class PaymentOperationEntityTest {
     }
 
     @Test
-    void anEstablishedOutcomeCannotBeFlipped() {
+    void anEstablishedOutcomeCannotBeFlipped()
+    {
         PaymentOperationEntity operation = operation(OperationType.CAPTURE);
         operation.resolve(OperationStatus.SUCCEEDED, "cap_ref_3", null);
 
@@ -83,7 +89,8 @@ class PaymentOperationEntityTest {
     }
 
     @Test
-    void reResolvingToTheSameOutcomeIsAllowed_soRedeliveryIsHarmless() {
+    void reResolvingToTheSameOutcomeIsAllowed_soRedeliveryIsHarmless()
+    {
         PaymentOperationEntity operation = operation(OperationType.AUTHORIZE);
         operation.resolve(OperationStatus.SUCCEEDED, "auth_ref", null);
 
@@ -93,7 +100,8 @@ class PaymentOperationEntityTest {
     }
 
     @Test
-    void anEstablishedOutcomeCannotRegressToUnknown() {
+    void anEstablishedOutcomeCannotRegressToUnknown()
+    {
         PaymentOperationEntity operation = operation(OperationType.CAPTURE);
         operation.resolve(OperationStatus.SUCCEEDED, "cap_ref_4", null);
 
@@ -105,7 +113,8 @@ class PaymentOperationEntityTest {
     }
 
     @Test
-    void reconcileAttemptsAreCounted() {
+    void reconcileAttemptsAreCounted()
+    {
         PaymentOperationEntity operation = operation(OperationType.CAPTURE);
         operation.markUnknown(null);
 
@@ -115,7 +124,8 @@ class PaymentOperationEntityTest {
     }
 
     @Test
-    void amountIsCarriedAsIntegerMinorUnits() {
+    void amountIsCarriedAsIntegerMinorUnits()
+    {
         PaymentOperationEntity operation = operation(OperationType.CAPTURE);
 
         // Money is minor units + currency, never floating point (NFR §7, ADR-0016 §4).
@@ -123,7 +133,8 @@ class PaymentOperationEntityTest {
         assertThat(operation.getAmount().minorUnits()).isEqualTo(1999L);
     }
 
-    private PaymentOperationEntity operation(OperationType type) {
+    private PaymentOperationEntity operation(OperationType type)
+    {
         UUID orderId = UUID.randomUUID();
         PaymentIntentEntity intent = new PaymentIntentEntity(UUID.randomUUID(), orderId,
                 UUID.randomUUID(), AMOUNT, "pi_token");

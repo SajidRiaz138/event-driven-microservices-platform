@@ -32,20 +32,25 @@ import org.apache.avro.specific.SpecificDatumWriter;
  * Maven repository dependency.
  */
 @Component
-public class EnvelopeCodec {
+public class EnvelopeCodec
+{
 
     /**
      * Encode a single Avro {@link SpecificRecord} to its binary form.
      */
-    public byte[] encodePayload(SpecificRecordBase payload) {
-        try {
+    public byte[] encodePayload(SpecificRecordBase payload)
+    {
+        try
+        {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             BinaryEncoder encoder = EncoderFactory.get().binaryEncoder(out, null);
             SpecificDatumWriter<SpecificRecordBase> writer = new SpecificDatumWriter<>(payload.getSchema());
             writer.write(payload, encoder);
             encoder.flush();
             return out.toByteArray();
-        } catch (IOException e) {
+        }
+        catch (IOException e)
+        {
             throw new UncheckedIOException("Failed to encode Avro payload", e);
         }
     }
@@ -53,15 +58,21 @@ public class EnvelopeCodec {
     /**
      * Decode a binary Avro payload of a known {@link SpecificRecordBase} type.
      */
-    public <T extends SpecificRecordBase> T decodePayload(byte[] bytes, Class<T> type) {
-        try {
+    public <T extends SpecificRecordBase> T decodePayload(byte[] bytes, Class<T> type)
+    {
+        try
+        {
             T instance = type.getDeclaredConstructor().newInstance();
             BinaryDecoder decoder = DecoderFactory.get().binaryDecoder(bytes, null);
             SpecificDatumReader<T> reader = new SpecificDatumReader<>(instance.getSchema());
             return reader.read(instance, decoder);
-        } catch (ReflectiveOperationException e) {
+        }
+        catch (ReflectiveOperationException e)
+        {
             throw new IllegalStateException("Cannot instantiate Avro record " + type, e);
-        } catch (IOException e) {
+        }
+        catch (IOException e)
+        {
             throw new UncheckedIOException("Failed to decode Avro payload", e);
         }
     }
@@ -70,8 +81,13 @@ public class EnvelopeCodec {
      * Build a new {@link Envelope} carrying the given Avro payload, and encode the
      * envelope itself to bytes ready to hand to the Kafka producer.
      */
-    public byte[] encodeEnvelope(MessageKind kind, String type, UUID correlationId, UUID causationId,
-                                  UUID aggregateId, SpecificRecordBase payload) {
+    public byte[] encodeEnvelope(MessageKind kind,
+                                 String type,
+                                 UUID correlationId,
+                                 UUID causationId,
+                                 UUID aggregateId,
+                                 SpecificRecordBase payload)
+    {
         Envelope envelope = Envelope.newBuilder()
                 .setMessageId(UUID.randomUUID())
                 .setMessageKind(kind)
@@ -90,15 +106,19 @@ public class EnvelopeCodec {
         return encodeEnvelopeRecord(envelope);
     }
 
-    private byte[] encodeEnvelopeRecord(Envelope envelope) {
-        try {
+    private byte[] encodeEnvelopeRecord(Envelope envelope)
+    {
+        try
+        {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             BinaryEncoder encoder = EncoderFactory.get().binaryEncoder(out, null);
             SpecificDatumWriter<Envelope> writer = new SpecificDatumWriter<>(Envelope.getClassSchema());
             writer.write(envelope, encoder);
             encoder.flush();
             return out.toByteArray();
-        } catch (IOException e) {
+        }
+        catch (IOException e)
+        {
             throw new UncheckedIOException("Failed to encode Envelope", e);
         }
     }
@@ -106,12 +126,16 @@ public class EnvelopeCodec {
     /**
      * Decode a raw Kafka record value back into an {@link Envelope}.
      */
-    public Envelope decodeEnvelope(byte[] bytes) {
-        try {
+    public Envelope decodeEnvelope(byte[] bytes)
+    {
+        try
+        {
             BinaryDecoder decoder = DecoderFactory.get().binaryDecoder(new ByteArrayInputStream(bytes), null);
             SpecificDatumReader<Envelope> reader = new SpecificDatumReader<>(Envelope.getClassSchema());
             return reader.read(null, decoder);
-        } catch (IOException e) {
+        }
+        catch (IOException e)
+        {
             throw new UncheckedIOException("Failed to decode Envelope", e);
         }
     }

@@ -8,16 +8,19 @@ package com.sajidriaz.orderplatform.apigateway.routing;
  * received and is still being processed — retrying a non-idempotent call after a timeout can
  * duplicate work. It is also why every write on this API takes an {@code Idempotency-Key}.
  */
-public class DownstreamUnavailableException extends RuntimeException {
+public class DownstreamUnavailableException extends RuntimeException
+{
 
     private final boolean timeout;
 
-    public DownstreamUnavailableException(String routeId, boolean timeout, Throwable cause) {
+    public DownstreamUnavailableException(String routeId, boolean timeout, Throwable cause)
+    {
         super("Route '" + routeId + "' " + (timeout ? "timed out" : "could not be reached"), cause);
         this.timeout = timeout;
     }
 
-    public boolean isTimeout() {
+    public boolean isTimeout()
+    {
         return timeout;
     }
 }

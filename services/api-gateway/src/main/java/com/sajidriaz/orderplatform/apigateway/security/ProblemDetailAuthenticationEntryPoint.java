@@ -17,22 +17,26 @@ import java.io.IOException;
  * error this platform returns rather than Spring Security's default empty-bodied challenge.
  */
 @Component
-public class ProblemDetailAuthenticationEntryPoint implements AuthenticationEntryPoint {
+public class ProblemDetailAuthenticationEntryPoint implements AuthenticationEntryPoint
+{
 
     @Override
-    public void commence(HttpServletRequest request, HttpServletResponse response,
-                            AuthenticationException authenticationException) throws IOException {
+    public void commence(HttpServletRequest request,
+                         HttpServletResponse response,
+                         AuthenticationException authenticationException) throws IOException
+    {
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
         response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer realm=\"order-platform\"");
         response.setContentType(ProblemJson.CONTENT_TYPE);
         // Why the token failed is logged, not returned: telling a caller whether a forged token
         // failed on signature or on expiry tells them which half to fix.
-        response.getWriter().write(ProblemJson.render(
-                HttpStatus.UNAUTHORIZED.value(),
-                "unauthenticated",
-                "Unauthorized",
-                "A valid credential is required.",
-                request.getRequestURI(),
-                CorrelationContext.currentCorrelationId()));
+        response.getWriter()
+                .write(ProblemJson.render(
+                        HttpStatus.UNAUTHORIZED.value(),
+                        "unauthenticated",
+                        "Unauthorized",
+                        "A valid credential is required.",
+                        request.getRequestURI(),
+                        CorrelationContext.currentCorrelationId()));
     }
 }

@@ -25,7 +25,8 @@ import java.util.List;
  * achieve exactly-once.
  */
 @Component
-public class OutboxRelay {
+public class OutboxRelay
+{
 
     private static final Logger log = LoggerFactory.getLogger(OutboxRelay.class);
 
@@ -34,24 +35,29 @@ public class OutboxRelay {
     private final int batchSize;
 
     public OutboxRelay(OutboxRecordRepository outboxRecordRepository,
-                        KafkaTemplate<String, byte[]> kafkaTemplate,
-                        @Value("${order-platform.outbox.relay.batch-size:50}") int batchSize) {
+                       KafkaTemplate<String, byte[]> kafkaTemplate,
+                       @Value ("${order-platform.outbox.relay.batch-size:50}") int batchSize)
+    {
         this.outboxRecordRepository = outboxRecordRepository;
         this.kafkaTemplate = kafkaTemplate;
         this.batchSize = batchSize;
     }
 
-    @Scheduled(fixedDelayString = "${order-platform.outbox.relay.fixed-delay-ms:500}")
+    @Scheduled (fixedDelayString = "${order-platform.outbox.relay.fixed-delay-ms:500}")
     @Transactional
-    public void relayPendingRecords() {
+    public void relayPendingRecords()
+    {
         List<OutboxRecordEntity> batch = outboxRecordRepository.lockNextBatch(batchSize);
-        for (OutboxRecordEntity record : batch) {
+        for (OutboxRecordEntity record : batch)
+        {
             publish(record);
         }
     }
 
-    private void publish(OutboxRecordEntity record) {
-        try {
+    private void publish(OutboxRecordEntity record)
+    {
+        try
+        {
             // Bounded wait, not an unbounded blocking .get(): this call runs inside a
             // DB transaction holding a pooled connection (ADR-0004's SELECT ... FOR
             // UPDATE SKIP LOCKED lock), so it must never block for as long as Kafka's
@@ -63,7 +69,9 @@ public class OutboxRelay {
             kafkaTemplate.send(record.getTopic(), record.getAggregateId().toString(), record.getPayload())
                     .get(5, java.util.concurrent.TimeUnit.SECONDS);
             record.markSent(Instant.now());
-        } catch (Exception e) {
+        }
+        catch (Exception e)
+        {
             // Leave the row PENDING; the next poll retries. This inherits at-least-once
             // publishing without extra machinery (ADR-0014 §2).
             log.warn("Failed to publish outbox record {} to topic {}; will retry on next poll",

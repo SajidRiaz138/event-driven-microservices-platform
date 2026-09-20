@@ -8,7 +8,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface PaymentIntentRepository extends JpaRepository<PaymentIntentEntity, UUID> {
+public interface PaymentIntentRepository extends JpaRepository<PaymentIntentEntity, UUID>
+{
 
     /**
      * The intent for an order.

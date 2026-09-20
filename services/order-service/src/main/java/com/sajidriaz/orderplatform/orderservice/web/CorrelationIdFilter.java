@@ -28,12 +28,15 @@ import java.io.IOException;
  * untraceable.
  */
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE)
-public class CorrelationIdFilter extends OncePerRequestFilter {
+@Order (Ordered.HIGHEST_PRECEDENCE)
+public class CorrelationIdFilter extends OncePerRequestFilter
+{
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
+                                                                                                                       throws ServletException,
+                                                                                                                       IOException
+    {
         String incoming = request.getHeader(CorrelationContext.HEADER_CORRELATION_ID);
         String correlationId = CorrelationContext.adoptOrGenerate(incoming);
         response.setHeader(CorrelationContext.HEADER_CORRELATION_ID, correlationId);
@@ -45,9 +48,12 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
         TraceparentContext.set(traceparent);
         CorrelationContext.setTraceId(TraceparentContext.traceIdOf(traceparent));
 
-        try {
+        try
+        {
             filterChain.doFilter(request, response);
-        } finally {
+        }
+        finally
+        {
             TraceparentContext.clear();
             CorrelationContext.clear();
         }

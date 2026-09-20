@@ -10,10 +10,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * "tidies" a constant here, the participants would publish to a topic the orchestrator
  * never consumes — a silent failure that no compiler catches. This test is the guard.
  */
-class PlatformTopicsTest {
+class PlatformTopicsTest
+{
 
     @Test
-    void topicNamesFollowTheAdr0010Grammar() {
+    void topicNamesFollowTheAdr0010Grammar()
+    {
         assertEquals("commands.inventory.reserve.v1", PlatformTopics.COMMANDS_INVENTORY_RESERVE);
         assertEquals("commands.inventory.release.v1", PlatformTopics.COMMANDS_INVENTORY_RELEASE);
         assertEquals("commands.payment.authorize.v1", PlatformTopics.COMMANDS_PAYMENT_AUTHORIZE);
@@ -33,7 +35,8 @@ class PlatformTopicsTest {
     }
 
     @Test
-    void deadLetterTopicFollowsPerConsumerGroupPattern() {
+    void deadLetterTopicFollowsPerConsumerGroupPattern()
+    {
         assertEquals("commands.inventory.reserve.v1.inventory-service.DLT",
                 PlatformTopics.deadLetterTopicFor(PlatformTopics.COMMANDS_INVENTORY_RESERVE, "inventory-service"));
         assertEquals("commands.payment.capture.v1.payment-service.DLT",
@@ -41,7 +44,8 @@ class PlatformTopicsTest {
     }
 
     @Test
-    void envelopeTypeCarriesNoVersionSuffix() {
+    void envelopeTypeCarriesNoVersionSuffix()
+    {
         // The major version lives in the topic name and Envelope.schemaVersion, never here.
         assertEquals("events.inventory.reserved", MessageTypes.EVENT_INVENTORY_RESERVED);
         assertEquals("events.payment.captured", MessageTypes.EVENT_PAYMENT_CAPTURED);

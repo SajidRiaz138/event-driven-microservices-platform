@@ -24,10 +24,12 @@ import java.net.http.HttpClient;
  * the client, so it is passed through as the 3xx it is.
  */
 @Configuration
-public class DownstreamClientConfig {
+public class DownstreamClientConfig
+{
 
     @Bean
-    public RestClient downstreamRestClient(GatewayProperties properties) {
+    public RestClient downstreamRestClient(GatewayProperties properties)
+    {
         HttpClient httpClient = HttpClient.newBuilder()
                 .connectTimeout(properties.connectTimeout())
                 .followRedirects(HttpClient.Redirect.NEVER)

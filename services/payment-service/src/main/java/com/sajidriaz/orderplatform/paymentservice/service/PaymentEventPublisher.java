@@ -29,15 +29,18 @@ import java.util.UUID;
  * orchestrator uses to correlate a reply with its saga.
  */
 @Component
-public class PaymentEventPublisher {
+public class PaymentEventPublisher
+{
 
     private final OutboxWriter outboxWriter;
 
-    public PaymentEventPublisher(OutboxWriter outboxWriter) {
+    public PaymentEventPublisher(OutboxWriter outboxWriter)
+    {
         this.outboxWriter = outboxWriter;
     }
 
-    public void authorized(PaymentOperationEntity operation, UUID correlationId, UUID causationId) {
+    public void authorized(PaymentOperationEntity operation, UUID correlationId, UUID causationId)
+    {
         UUID orderId = orderIdOf(operation);
         Money amount = operation.getAmount();
         PaymentAuthorized payload = PaymentAuthorized.newBuilder()
@@ -52,7 +55,8 @@ public class PaymentEventPublisher {
                 correlationId, causationId, orderId, payload);
     }
 
-    public void declined(PaymentOperationEntity operation, UUID correlationId, UUID causationId) {
+    public void declined(PaymentOperationEntity operation, UUID correlationId, UUID causationId)
+    {
         UUID orderId = orderIdOf(operation);
         PaymentDeclined payload = PaymentDeclined.newBuilder()
                 .setOrderId(orderId)
@@ -65,7 +69,8 @@ public class PaymentEventPublisher {
     }
 
     /** The saga pivot: after this, the saga rolls forward rather than compensating. */
-    public void captured(PaymentOperationEntity operation, UUID correlationId, UUID causationId) {
+    public void captured(PaymentOperationEntity operation, UUID correlationId, UUID causationId)
+    {
         UUID orderId = orderIdOf(operation);
         PaymentCaptured payload = PaymentCaptured.newBuilder()
                 .setOrderId(orderId)
@@ -75,7 +80,8 @@ public class PaymentEventPublisher {
                 // The provider's reference is what makes this capture reconcilable later; a capture
                 // event without it would be a fact nobody could verify against the provider.
                 .setProviderReference(operation.getProviderReference() == null
-                        ? "unknown" : operation.getProviderReference())
+                        ? "unknown"
+                        : operation.getProviderReference())
                 .setAmount(avroMoney(operation.getAmount()))
                 .setCapturedAt(Instant.now())
                 .build();
@@ -83,7 +89,8 @@ public class PaymentEventPublisher {
                 correlationId, causationId, orderId, payload);
     }
 
-    public void captureFailed(PaymentOperationEntity operation, UUID correlationId, UUID causationId) {
+    public void captureFailed(PaymentOperationEntity operation, UUID correlationId, UUID causationId)
+    {
         UUID orderId = orderIdOf(operation);
         PaymentCaptureFailed payload = PaymentCaptureFailed.newBuilder()
                 .setOrderId(orderId)
@@ -104,7 +111,8 @@ public class PaymentEventPublisher {
      * orchestrator does not consume this topic today — its capture deadline only logs — so emitting
      * it is additive and changes no existing behaviour.
      */
-    public void captureUnknown(PaymentOperationEntity operation, UUID correlationId, UUID causationId) {
+    public void captureUnknown(PaymentOperationEntity operation, UUID correlationId, UUID causationId)
+    {
         UUID orderId = orderIdOf(operation);
         PaymentCaptureUnknown payload = PaymentCaptureUnknown.newBuilder()
                 .setOrderId(orderId)
@@ -119,7 +127,8 @@ public class PaymentEventPublisher {
                 correlationId, causationId, orderId, payload);
     }
 
-    public void refunded(PaymentOperationEntity refundOperation, UUID correlationId, UUID causationId) {
+    public void refunded(PaymentOperationEntity refundOperation, UUID correlationId, UUID causationId)
+    {
         UUID orderId = orderIdOf(refundOperation);
         PaymentRefunded payload = PaymentRefunded.newBuilder()
                 .setOrderId(orderId)
@@ -132,21 +141,29 @@ public class PaymentEventPublisher {
                 correlationId, causationId, orderId, payload);
     }
 
-    private void append(String type, String topic, UUID correlationId, UUID causationId, UUID orderId,
-                        org.apache.avro.specific.SpecificRecordBase payload) {
+    private void append(String type,
+                        String topic,
+                        UUID correlationId,
+                        UUID causationId,
+                        UUID orderId,
+                        org.apache.avro.specific.SpecificRecordBase payload)
+    {
         outboxWriter.append(MessageKind.EVENT, type, topic, correlationId, causationId, orderId, payload);
     }
 
-    private UUID orderIdOf(PaymentOperationEntity operation) {
+    private UUID orderIdOf(PaymentOperationEntity operation)
+    {
         return operation.getAttempt().getIntent().getOrderId();
     }
 
-    private UUID intentIdOf(PaymentOperationEntity operation) {
+    private UUID intentIdOf(PaymentOperationEntity operation)
+    {
         return operation.getAttempt().getIntent().getId();
     }
 
     /** Domain Money to its wire form. Integer minor units throughout, never floating point. */
-    private com.sajidriaz.orderplatform.common.Money avroMoney(Money amount) {
+    private com.sajidriaz.orderplatform.common.Money avroMoney(Money amount)
+    {
         return com.sajidriaz.orderplatform.common.Money.newBuilder()
                 .setMinorUnits(amount.minorUnits())
                 .setCurrency(amount.currency())

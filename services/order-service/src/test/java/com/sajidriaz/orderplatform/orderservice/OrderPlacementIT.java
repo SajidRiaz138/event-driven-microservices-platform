@@ -77,10 +77,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 4xx, so every status code below is asserted explicitly rather than inferred from the
  * absence of an exception.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest (webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
-@EnabledIfEnvironmentVariable(named = "DOCKER_AVAILABLE", matches = "true")
-class OrderPlacementIT {
+@EnabledIfEnvironmentVariable (named = "DOCKER_AVAILABLE", matches = "true")
+class OrderPlacementIT
+{
 
     @Container
     static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:17.6")
@@ -93,7 +94,8 @@ class OrderPlacementIT {
             DockerImageName.parse("apache/kafka:4.1.2"));
 
     @DynamicPropertySource
-    static void properties(DynamicPropertyRegistry registry) {
+    static void properties(DynamicPropertyRegistry registry)
+    {
         registry.add("spring.datasource.url", postgres::getJdbcUrl);
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
@@ -131,14 +133,16 @@ class OrderPlacementIT {
     private final EnvelopeCodec envelopeCodec = new EnvelopeCodec();
 
     @BeforeEach
-    void setUpHttpClient() {
+    void setUpHttpClient()
+    {
         RestTestClient.Builder<?> builder = RestTestClient.bindToServer();
         builder.baseUrl("http://localhost:" + port);
         client = builder.build();
     }
 
     @BeforeAll
-    static void setUpKafkaClients() {
+    static void setUpKafkaClients()
+    {
         Properties producerProps = new Properties();
         producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers());
         producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
@@ -163,17 +167,21 @@ class OrderPlacementIT {
     }
 
     @AfterAll
-    static void tearDownKafkaClients() {
-        if (producer != null) {
+    static void tearDownKafkaClients()
+    {
+        if (producer != null)
+        {
             producer.close();
         }
-        if (verifierConsumer != null) {
+        if (verifierConsumer != null)
+        {
             verifierConsumer.close();
         }
     }
 
     @Test
-    void placeOrder_returns202WithLocationAndCorrelationId_andEmitsOrderCreated() {
+    void placeOrder_returns202WithLocationAndCorrelationId_andEmitsOrderCreated()
+    {
         String customerId = "cust-" + UUID.randomUUID();
         String idempotencyKey = UUID.randomUUID().toString();
 
@@ -217,7 +225,8 @@ class OrderPlacementIT {
      * <p>The id on the wire must be the id the caller was given.
      */
     @Test
-    void placeOrder_putsTheRequestCorrelationIdOnTheEnvelope() {
+    void placeOrder_putsTheRequestCorrelationIdOnTheEnvelope()
+    {
         String customerId = "cust-" + UUID.randomUUID();
         String correlationId = UUID.randomUUID().toString();
 
@@ -225,7 +234,8 @@ class OrderPlacementIT {
                 { "lines": [ { "sku": "SKU-1001", "quantity": 1 } ], "currency": "USD", "paymentInstrumentId": "pi_corr" }
                 """;
 
-        EntityExchangeResult<JsonNode> created = client.post().uri("/api/v1/orders")
+        EntityExchangeResult<JsonNode> created = client.post()
+                .uri("/api/v1/orders")
                 .contentType(MediaType.APPLICATION_JSON)
                 .header(HttpHeaders.AUTHORIZATION, bearerFor(customerId))
                 .header("Idempotency-Key", UUID.randomUUID().toString())
@@ -245,7 +255,8 @@ class OrderPlacementIT {
     }
 
     @Test
-    void happyPath_stockReservedAuthorizedCaptured_confirmsOrder() {
+    void happyPath_stockReservedAuthorizedCaptured_confirmsOrder()
+    {
         String customerId = "cust-" + UUID.randomUUID();
         String orderId = placeOrderAndGetId(customerId, "SKU-1001", 1);
         UUID orderUuid = UUID.fromString(orderId);
@@ -259,7 +270,8 @@ class OrderPlacementIT {
     }
 
     @Test
-    void compensation_stockReservedThenPaymentDeclined_releasesStockAndCancels() {
+    void compensation_stockReservedThenPaymentDeclined_releasesStockAndCancels()
+    {
         String customerId = "cust-" + UUID.randomUUID();
         String orderId = placeOrderAndGetId(customerId, "SKU-1002", 1);
         UUID orderUuid = UUID.fromString(orderId);
@@ -267,7 +279,8 @@ class OrderPlacementIT {
         publishStockReserved(orderUuid);
         publishPaymentDeclined(orderUuid);
 
-        Awaitility.await().atMost(Duration.ofSeconds(8)).untilAsserted(() -> {
+        Awaitility.await().atMost(Duration.ofSeconds(8)).untilAsserted(() ->
+        {
             EntityExchangeResult<JsonNode> response = getOrder(customerId, orderId);
             assertThat(response.getStatus().value()).isEqualTo(HttpStatus.OK.value());
             assertThat(response.getResponseBody()).isNotNull();
@@ -285,7 +298,8 @@ class OrderPlacementIT {
      * {@code AWAITING_STOCK_RELEASE} forever even once inventory had released the stock.
      */
     @Test
-    void compensationCompletes_whenStockReleasedArrives_sagaStepReachesDone() {
+    void compensationCompletes_whenStockReleasedArrives_sagaStepReachesDone()
+    {
         String customerId = "cust-" + UUID.randomUUID();
         String orderId = placeOrderAndGetId(customerId, "SKU-1002", 1);
         UUID orderUuid = UUID.fromString(orderId);
@@ -300,7 +314,8 @@ class OrderPlacementIT {
 
         publishStockReleased(orderUuid);
 
-        Awaitility.await().atMost(Duration.ofSeconds(8))
+        Awaitility.await()
+                .atMost(Duration.ofSeconds(8))
                 .untilAsserted(() -> assertThat(currentStepOf(orderUuid)).isEqualTo("DONE"));
 
         // The order stays CANCELLED: closing the compensation bookkeeping must never
@@ -311,7 +326,8 @@ class OrderPlacementIT {
     }
 
     @Test
-    void idempotency_sameKeyTwice_oneOrder_thenSecondReplaysOriginal_andConflictOnDifferentBody() {
+    void idempotency_sameKeyTwice_oneOrder_thenSecondReplaysOriginal_andConflictOnDifferentBody()
+    {
         String customerId = "cust-" + UUID.randomUUID();
         String idempotencyKey = UUID.randomUUID().toString();
         String body = """
@@ -338,7 +354,8 @@ class OrderPlacementIT {
     }
 
     @Test
-    void ownership_crossCustomerGet_returns404() {
+    void ownership_crossCustomerGet_returns404()
+    {
         String ownerCustomerId = "cust-" + UUID.randomUUID();
         String orderId = placeOrderAndGetId(ownerCustomerId, "SKU-1001", 1);
 
@@ -354,13 +371,15 @@ class OrderPlacementIT {
      * previously fell through to the catch-all handler and were returned as 500.
      */
     @Test
-    void clientErrors_missingIdempotencyKeyOrMalformedBody_return400ProblemJson() {
+    void clientErrors_missingIdempotencyKeyOrMalformedBody_return400ProblemJson()
+    {
         String customerId = "cust-" + UUID.randomUUID();
         String validBody = """
                 { "lines": [ { "sku": "SKU-1001", "quantity": 1 } ], "currency": "USD", "paymentInstrumentId": "pi_a" }
                 """;
 
-        EntityExchangeResult<JsonNode> missingHeader = client.post().uri("/api/v1/orders")
+        EntityExchangeResult<JsonNode> missingHeader = client.post()
+                .uri("/api/v1/orders")
                 .contentType(MediaType.APPLICATION_JSON)
                 .header(HttpHeaders.AUTHORIZATION, bearerFor(customerId))
                 .body(validBody)
@@ -397,8 +416,10 @@ class OrderPlacementIT {
     // ---------------------------------------------------------------------
 
     @Test
-    void auth_missingToken_returns401ProblemJson() {
-        EntityExchangeResult<JsonNode> response = client.get().uri("/api/v1/orders/" + UUID.randomUUID())
+    void auth_missingToken_returns401ProblemJson()
+    {
+        EntityExchangeResult<JsonNode> response = client.get()
+                .uri("/api/v1/orders/" + UUID.randomUUID())
                 .exchange()
                 .returnResult(JsonNode.class);
 
@@ -408,28 +429,33 @@ class OrderPlacementIT {
     }
 
     @Test
-    void auth_expiredToken_returns401() {
+    void auth_expiredToken_returns401()
+    {
         assertRejectedWith401(TestJwtIssuer.expiredTokenFor("cust-" + UUID.randomUUID()));
     }
 
     @Test
-    void auth_tokenSignedByAKeyOutsideTheJwks_returns401() {
+    void auth_tokenSignedByAKeyOutsideTheJwks_returns401()
+    {
         assertRejectedWith401(TestJwtIssuer.tokenSignedByUntrustedKey("cust-" + UUID.randomUUID()));
     }
 
     @Test
-    void auth_tokenMintedForAnotherAudience_returns401() {
+    void auth_tokenMintedForAnotherAudience_returns401()
+    {
         assertRejectedWith401(TestJwtIssuer.tokenForForeignAudience("cust-" + UUID.randomUUID()));
     }
 
     @Test
-    void authz_readOnlyToken_cannotPlaceOrder_returns403ProblemJson() {
+    void authz_readOnlyToken_cannotPlaceOrder_returns403ProblemJson()
+    {
         String customerId = "cust-" + UUID.randomUUID();
         String body = """
                 { "lines": [ { "sku": "SKU-1001", "quantity": 1 } ], "currency": "USD", "paymentInstrumentId": "pi_a" }
                 """;
 
-        EntityExchangeResult<JsonNode> response = client.post().uri("/api/v1/orders")
+        EntityExchangeResult<JsonNode> response = client.post()
+                .uri("/api/v1/orders")
                 .contentType(MediaType.APPLICATION_JSON)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + TestJwtIssuer.tokenWithScopes(customerId, "orders:read"))
                 .header("Idempotency-Key", UUID.randomUUID().toString())
@@ -443,11 +469,13 @@ class OrderPlacementIT {
     }
 
     @Test
-    void authz_writeOnlyToken_cannotReadOrder_returns403() {
+    void authz_writeOnlyToken_cannotReadOrder_returns403()
+    {
         String customerId = "cust-" + UUID.randomUUID();
         String orderId = placeOrderAndGetId(customerId, "SKU-1001", 1);
 
-        EntityExchangeResult<JsonNode> response = client.get().uri("/api/v1/orders/" + orderId)
+        EntityExchangeResult<JsonNode> response = client.get()
+                .uri("/api/v1/orders/" + orderId)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + TestJwtIssuer.tokenWithScopes(customerId, "orders:write"))
                 .exchange()
                 .returnResult(JsonNode.class);
@@ -455,8 +483,10 @@ class OrderPlacementIT {
         assertThat(response.getStatus().value()).isEqualTo(HttpStatus.FORBIDDEN.value());
     }
 
-    private void assertRejectedWith401(String token) {
-        EntityExchangeResult<JsonNode> response = client.get().uri("/api/v1/orders/" + UUID.randomUUID())
+    private void assertRejectedWith401(String token)
+    {
+        EntityExchangeResult<JsonNode> response = client.get()
+                .uri("/api/v1/orders/" + UUID.randomUUID())
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .exchange()
                 .returnResult(JsonNode.class);
@@ -470,7 +500,8 @@ class OrderPlacementIT {
      * the API (RFC 9457 + the correlationId extension), not Spring Security's default empty
      * body — including the correlation id, which is what makes a refused call traceable.
      */
-    private void assertProblemJson(EntityExchangeResult<JsonNode> response, int expectedStatus) {
+    private void assertProblemJson(EntityExchangeResult<JsonNode> response, int expectedStatus)
+    {
         assertThat(response.getResponseHeaders().getContentType()).isNotNull();
         assertThat(response.getResponseHeaders().getContentType().toString())
                 .startsWith("application/problem+json");
@@ -486,8 +517,10 @@ class OrderPlacementIT {
     // HTTP helpers
     // ---------------------------------------------------------------------
 
-    private EntityExchangeResult<JsonNode> postOrder(String customerId, String idempotencyKey, String body) {
-        return client.post().uri("/api/v1/orders")
+    private EntityExchangeResult<JsonNode> postOrder(String customerId, String idempotencyKey, String body)
+    {
+        return client.post()
+                .uri("/api/v1/orders")
                 .contentType(MediaType.APPLICATION_JSON)
                 .header(HttpHeaders.AUTHORIZATION, bearerFor(customerId))
                 .header("Idempotency-Key", idempotencyKey)
@@ -496,8 +529,10 @@ class OrderPlacementIT {
                 .returnResult(JsonNode.class);
     }
 
-    private EntityExchangeResult<JsonNode> getOrder(String customerId, String orderId) {
-        return client.get().uri("/api/v1/orders/" + orderId)
+    private EntityExchangeResult<JsonNode> getOrder(String customerId, String orderId)
+    {
+        return client.get()
+                .uri("/api/v1/orders/" + orderId)
                 .header(HttpHeaders.AUTHORIZATION, bearerFor(customerId))
                 .exchange()
                 .returnResult(JsonNode.class);
@@ -509,11 +544,13 @@ class OrderPlacementIT {
      * therefore becomes a distinct subject, which is exactly what the cross-customer ownership
      * case needs.
      */
-    private String bearerFor(String customerId) {
+    private String bearerFor(String customerId)
+    {
         return "Bearer " + TestJwtIssuer.tokenFor(customerId);
     }
 
-    private String placeOrderAndGetId(String customerId, String sku, int quantity) {
+    private String placeOrderAndGetId(String customerId, String sku, int quantity)
+    {
         String body = """
                 { "lines": [ { "sku": "%s", "quantity": %d } ], "currency": "USD", "paymentInstrumentId": "pi_test" }
                 """.formatted(sku, quantity);
@@ -523,8 +560,10 @@ class OrderPlacementIT {
         return response.getResponseBody().get("orderId").asString();
     }
 
-    private void awaitOrderStatus(String customerId, String orderId, String expectedStatus) {
-        Awaitility.await().atMost(Duration.ofSeconds(8)).untilAsserted(() -> {
+    private void awaitOrderStatus(String customerId, String orderId, String expectedStatus)
+    {
+        Awaitility.await().atMost(Duration.ofSeconds(8)).untilAsserted(() ->
+        {
             EntityExchangeResult<JsonNode> response = getOrder(customerId, orderId);
             assertThat(response.getStatus().value()).isEqualTo(HttpStatus.OK.value());
             assertThat(response.getResponseBody()).isNotNull();
@@ -532,7 +571,8 @@ class OrderPlacementIT {
         });
     }
 
-    private String currentStepOf(UUID orderId) {
+    private String currentStepOf(UUID orderId)
+    {
         return jdbc.queryForObject("select current_step from saga_instance where order_id = ?", String.class, orderId);
     }
 
@@ -540,7 +580,8 @@ class OrderPlacementIT {
     // Kafka helpers — standing in for inventory-service / payment-service
     // ---------------------------------------------------------------------
 
-    private void publishStockReserved(UUID orderId) {
+    private void publishStockReserved(UUID orderId)
+    {
         StockReserved payload = StockReserved.newBuilder()
                 .setOrderId(orderId)
                 .setReservationId(UUID.randomUUID())
@@ -550,7 +591,8 @@ class OrderPlacementIT {
         publish(Topics.EVENTS_INVENTORY_RESERVED, orderId, "events.inventory.reserved", payload);
     }
 
-    private void publishStockReleased(UUID orderId) {
+    private void publishStockReleased(UUID orderId)
+    {
         StockReleased payload = StockReleased.newBuilder()
                 .setOrderId(orderId)
                 .setReservationId(UUID.randomUUID())
@@ -559,7 +601,8 @@ class OrderPlacementIT {
         publish(Topics.EVENTS_INVENTORY_RELEASED, orderId, "events.inventory.released", payload);
     }
 
-    private void publishPaymentAuthorized(UUID orderId) {
+    private void publishPaymentAuthorized(UUID orderId)
+    {
         PaymentAuthorized payload = PaymentAuthorized.newBuilder()
                 .setOrderId(orderId)
                 .setPaymentIntentId(UUID.randomUUID())
@@ -571,7 +614,8 @@ class OrderPlacementIT {
         publish(Topics.EVENTS_PAYMENT_AUTHORIZED, orderId, "events.payment.authorized", payload);
     }
 
-    private void publishPaymentCaptured(UUID orderId) {
+    private void publishPaymentCaptured(UUID orderId)
+    {
         PaymentCaptured payload = PaymentCaptured.newBuilder()
                 .setOrderId(orderId)
                 .setPaymentIntentId(UUID.randomUUID())
@@ -584,7 +628,8 @@ class OrderPlacementIT {
         publish(Topics.EVENTS_PAYMENT_CAPTURED, orderId, "events.payment.captured", payload);
     }
 
-    private void publishPaymentDeclined(UUID orderId) {
+    private void publishPaymentDeclined(UUID orderId)
+    {
         PaymentDeclined payload = PaymentDeclined.newBuilder()
                 .setOrderId(orderId)
                 .setPaymentIntentId(UUID.randomUUID())
@@ -594,7 +639,8 @@ class OrderPlacementIT {
         publish(Topics.EVENTS_PAYMENT_DECLINED, orderId, "events.payment.declined", payload);
     }
 
-    private void publish(String topic, UUID orderId, String type, org.apache.avro.specific.SpecificRecordBase payload) {
+    private void publish(String topic, UUID orderId, String type, org.apache.avro.specific.SpecificRecordBase payload)
+    {
         byte[] envelopeBytes = envelopeCodec.encodeEnvelope(MessageKind.EVENT, type, UUID.randomUUID(), null, orderId, payload);
         producer.send(new ProducerRecord<>(topic, orderId.toString(), envelopeBytes));
         producer.flush();
@@ -607,7 +653,8 @@ class OrderPlacementIT {
      * discarded) so a later assertion in the same test class can still find them
      * without missing any poll — the consumer is never re-subscribed mid-suite.
      */
-    private void assertEventPublished(String orderId, String expectedType) {
+    private void assertEventPublished(String orderId, String expectedType)
+    {
         awaitEvent(orderId, expectedType);
     }
 
@@ -615,22 +662,28 @@ class OrderPlacementIT {
      * As {@link #assertEventPublished}, but hands the message back so a test can assert on
      * the envelope itself and not merely on its existence.
      */
-    private Envelope awaitEvent(String orderId, String expectedType) {
+    private Envelope awaitEvent(String orderId, String expectedType)
+    {
         Iterator<Envelope> bufferedIt = bufferedEnvelopes.iterator();
-        while (bufferedIt.hasNext()) {
+        while (bufferedIt.hasNext())
+        {
             Envelope envelope = bufferedIt.next();
-            if (envelope.getAggregateId().equals(orderId) && envelope.getType().equals(expectedType)) {
+            if (envelope.getAggregateId().equals(orderId) && envelope.getType().equals(expectedType))
+            {
                 bufferedIt.remove();
                 return envelope;
             }
         }
 
         long deadline = System.currentTimeMillis() + 8_000;
-        while (System.currentTimeMillis() < deadline) {
+        while (System.currentTimeMillis() < deadline)
+        {
             var records = verifierConsumer.poll(Duration.ofMillis(300));
-            for (ConsumerRecord<String, byte[]> record : records) {
+            for (ConsumerRecord<String, byte[]> record : records)
+            {
                 Envelope envelope = envelopeCodec.decodeEnvelope(record.value());
-                if (envelope.getAggregateId().equals(orderId) && envelope.getType().equals(expectedType)) {
+                if (envelope.getAggregateId().equals(orderId) && envelope.getType().equals(expectedType))
+                {
                     return envelope;
                 }
                 bufferedEnvelopes.add(envelope);

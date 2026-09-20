@@ -43,7 +43,8 @@ import java.util.NoSuchElementException;
  * commit in the same DB transaction (ADR-0005).
  */
 @Configuration
-public class KafkaMessagingConfig {
+public class KafkaMessagingConfig
+{
 
     /**
      * Retries AFTER the initial delivery, so 4 retries = 5 total attempts before the
@@ -61,18 +62,19 @@ public class KafkaMessagingConfig {
      * a corrupt/undecodable envelope, an Avro schema mismatch, a malformed aggregate id,
      * or a reply naming an order/saga this service has no row for.
      */
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings ("unchecked")
     private static final Class<? extends Exception>[] NON_RETRYABLE = new Class[] {
-            DeserializationException.class,
-            AvroRuntimeException.class,
-            UncheckedIOException.class,
-            IllegalArgumentException.class,
-            NoSuchElementException.class
+                                                                                    DeserializationException.class,
+                                                                                    AvroRuntimeException.class,
+                                                                                    UncheckedIOException.class,
+                                                                                    IllegalArgumentException.class,
+                                                                                    NoSuchElementException.class
     };
 
     @Bean
     public ProducerFactory<String, byte[]> byteArrayProducerFactory(
-            @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers) {
+                                                                    @Value ("${spring.kafka.bootstrap-servers}") String bootstrapServers)
+    {
         Map<String, Object> props = new HashMap<>();
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
@@ -84,7 +86,8 @@ public class KafkaMessagingConfig {
     }
 
     @Bean
-    public KafkaTemplate<String, byte[]> byteArrayKafkaTemplate(ProducerFactory<String, byte[]> byteArrayProducerFactory) {
+    public KafkaTemplate<String, byte[]> byteArrayKafkaTemplate(ProducerFactory<String, byte[]> byteArrayProducerFactory)
+    {
         return new KafkaTemplate<>(byteArrayProducerFactory);
     }
 
@@ -106,18 +109,26 @@ public class KafkaMessagingConfig {
      */
     @Bean
     public org.springframework.beans.factory.SmartInitializingSingleton eagerKafkaProducerInitializer(
-            KafkaTemplate<String, byte[]> byteArrayKafkaTemplate) {
-        return () -> {
+                                                                                                      KafkaTemplate<String,
+                                                                                                              byte[]> byteArrayKafkaTemplate)
+    {
+        return () ->
+        {
             var producer = byteArrayKafkaTemplate.getProducerFactory().createProducer();
-            try {
+            try
+            {
                 // partitionsFor() forces the full metadata fetch (topic/broker
                 // discovery), not just TCP connect — this is the part that is
                 // otherwise deferred to the very first send() and can take a couple
                 // of seconds against a freshly-started broker.
                 producer.partitionsFor(Topics.EVENTS_ORDER_CREATED);
-            } catch (Exception ignored) {
+            }
+            catch (Exception ignored)
+            {
                 // Best-effort warm-up only; a real send will retry/report failures.
-            } finally {
+            }
+            finally
+            {
                 producer.close();
             }
         };
@@ -125,8 +136,9 @@ public class KafkaMessagingConfig {
 
     @Bean
     public ConsumerFactory<String, byte[]> byteArrayConsumerFactory(
-            @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers,
-            @Value("${spring.kafka.consumer.group-id:order-service}") String groupId) {
+                                                                    @Value ("${spring.kafka.bootstrap-servers}") String bootstrapServers,
+                                                                    @Value ("${spring.kafka.consumer.group-id:order-service}") String groupId)
+    {
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
@@ -149,8 +161,9 @@ public class KafkaMessagingConfig {
      */
     @Bean
     public DeadLetterPublishingRecoverer deadLetterPublishingRecoverer(
-            KafkaTemplate<String, byte[]> byteArrayKafkaTemplate,
-            @Value("${spring.kafka.consumer.group-id:order-service}") String groupId) {
+                                                                       KafkaTemplate<String, byte[]> byteArrayKafkaTemplate,
+                                                                       @Value ("${spring.kafka.consumer.group-id:order-service}") String groupId)
+    {
         return new DeadLetterPublishingRecoverer(byteArrayKafkaTemplate,
                 (record, exception) -> new TopicPartition(
                         Topics.deadLetterTopicFor(record.topic(), groupId), -1));
@@ -185,7 +198,8 @@ public class KafkaMessagingConfig {
      * recorded as a follow-up.
      */
     @Bean
-    public DefaultErrorHandler kafkaErrorHandler(DeadLetterPublishingRecoverer deadLetterPublishingRecoverer) {
+    public DefaultErrorHandler kafkaErrorHandler(DeadLetterPublishingRecoverer deadLetterPublishingRecoverer)
+    {
         ExponentialBackOff backOff = new ExponentialBackOff();
         backOff.setMaxAttempts(MAX_RETRIES);
         backOff.setInitialInterval(INITIAL_BACKOFF_MS);
@@ -207,8 +221,10 @@ public class KafkaMessagingConfig {
 
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, byte[]> kafkaListenerContainerFactory(
-            ConsumerFactory<String, byte[]> byteArrayConsumerFactory,
-            DefaultErrorHandler kafkaErrorHandler) {
+                                                                                                 ConsumerFactory<String,
+                                                                                                         byte[]> byteArrayConsumerFactory,
+                                                                                                 DefaultErrorHandler kafkaErrorHandler)
+    {
         ConcurrentKafkaListenerContainerFactory<String, byte[]> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(byteArrayConsumerFactory);
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);

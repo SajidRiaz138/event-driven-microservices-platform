@@ -10,7 +10,8 @@ package com.sajidriaz.orderplatform.paymentservice.entity;
  * the outcome stays {@code UNKNOWN} until reconciliation establishes the truth by asking the
  * provider with the same idempotency key.
  */
-public enum OperationStatus {
+public enum OperationStatus
+{
 
     /** Recorded before calling the provider, so a crash mid-call leaves a trace to reconcile. */
     PENDING,
@@ -25,12 +26,14 @@ public enum OperationStatus {
     UNKNOWN;
 
     /** True once the outcome is positively established either way. */
-    public boolean isResolved() {
+    public boolean isResolved()
+    {
         return this == SUCCEEDED || this == FAILED;
     }
 
     /** True while the outcome is not yet established — PENDING or UNKNOWN. */
-    public boolean isUnresolved() {
+    public boolean isUnresolved()
+    {
         return !isResolved();
     }
 }

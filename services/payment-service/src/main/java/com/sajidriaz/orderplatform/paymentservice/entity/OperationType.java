@@ -1,7 +1,8 @@
 package com.sajidriaz.orderplatform.paymentservice.entity;
 
 /** The kinds of provider call payment-service makes (ADR-0016 §1). */
-public enum OperationType {
+public enum OperationType
+{
 
     /** Place a hold on funds. Pre-pivot: still compensatable by a void. */
     AUTHORIZE,

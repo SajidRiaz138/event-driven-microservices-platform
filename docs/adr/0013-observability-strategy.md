@@ -14,8 +14,7 @@ operational polish — it is a functional requirement**: the system is only debu
 and operable to the degree it is observable.
 
 Observability was previously referenced in several places (NFR page, DLQ alerting in
-ADR-0006, the `platform/observability/` folders) but never decided as one coherent
-strategy. This ADR consolidates it.
+ADR-0006) but never decided as one coherent strategy. This ADR consolidates it.
 
 ## Decision
 
@@ -40,7 +39,7 @@ standardised across every service via `common-lib` so no service reinvents it.
   order-accept latency, saga completion time, **in-flight sagas**, **compensation
   rate**, **DLQ depth**, outbox lag (unpublished rows / oldest unpublished age),
   cache hit ratio, DB pool saturation.
-- Curated **Grafana dashboards** in `platform/observability/grafana/dashboards/`:
+- Curated **Grafana dashboards** (delivered with the observability stack, see ROADMAP):
   a per-service RED board and a **saga board** (the platform's signature view).
 
 ### 3. Logging (structured, correlated)

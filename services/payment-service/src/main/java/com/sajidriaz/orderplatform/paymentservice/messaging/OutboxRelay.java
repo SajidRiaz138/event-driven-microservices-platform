@@ -26,7 +26,8 @@ import java.util.concurrent.TimeUnit;
  * (ADR-0005). Chasing exactly-once here would buy nothing.
  */
 @Component
-public class OutboxRelay {
+public class OutboxRelay
+{
 
     private static final Logger log = LoggerFactory.getLogger(OutboxRelay.class);
 
@@ -45,41 +46,53 @@ public class OutboxRelay {
 
     public OutboxRelay(OutboxRecordRepository outboxRecordRepository,
                        KafkaTemplate<String, byte[]> kafkaTemplate,
-                       @Value("${order-platform.outbox.relay.batch-size:50}") int batchSize,
-                       @Value("${order-platform.outbox.relay.max-attempts:50}") int maxAttempts) {
+                       @Value ("${order-platform.outbox.relay.batch-size:50}") int batchSize,
+                       @Value ("${order-platform.outbox.relay.max-attempts:50}") int maxAttempts)
+    {
         this.outboxRecordRepository = outboxRecordRepository;
         this.kafkaTemplate = kafkaTemplate;
         this.batchSize = batchSize;
         this.maxAttempts = maxAttempts;
     }
 
-    @Scheduled(fixedDelayString = "${order-platform.outbox.relay.fixed-delay-ms:500}")
+    @Scheduled (fixedDelayString = "${order-platform.outbox.relay.fixed-delay-ms:500}")
     @Transactional
-    public void relayPendingRecords() {
+    public void relayPendingRecords()
+    {
         List<OutboxRecordEntity> batch = outboxRecordRepository.lockNextBatch(batchSize);
-        for (OutboxRecordEntity record : batch) {
+        for (OutboxRecordEntity record : batch)
+        {
             publish(record);
         }
     }
 
-    private void publish(OutboxRecordEntity record) {
-        try {
+    private void publish(OutboxRecordEntity record)
+    {
+        try
+        {
             kafkaTemplate.send(record.getTopic(), record.getAggregateId().toString(), record.getPayload())
                     .get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             record.markSent(Instant.now());
-        } catch (InterruptedException e) {
+        }
+        catch (InterruptedException e)
+        {
             Thread.currentThread().interrupt();
             log.warn("Interrupted publishing outbox record {}; will retry on next poll", record.getId(), e);
-        } catch (Exception e) {
+        }
+        catch (Exception e)
+        {
             int attempts = record.recordFailedAttempt();
-            if (attempts >= maxAttempts) {
+            if (attempts >= maxAttempts)
+            {
                 // Retrying forever with no signal is how an undeliverable row becomes invisible.
                 // FAILED is terminal for the relay and is what monitoring should alert on.
                 record.markFailed();
                 log.error("Giving up on outbox record {} to topic {} after {} attempts; marked FAILED "
-                                + "and requires operator attention",
+                        + "and requires operator attention",
                         record.getId(), record.getTopic(), attempts, e);
-            } else {
+            }
+            else
+            {
                 log.warn("Failed to publish outbox record {} to topic {} (attempt {}); will retry on next poll",
                         record.getId(), record.getTopic(), attempts, e);
             }

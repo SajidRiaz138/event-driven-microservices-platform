@@ -33,7 +33,8 @@ import java.util.UUID;
  * before the caller's {@code 202} response (REST-API-GUIDE §1 "Asynchronous operations").
  */
 @Service
-public class OrderCreationService {
+public class OrderCreationService
+{
 
     private final OrderRepository orderRepository;
     private final SagaInstanceRepository sagaInstanceRepository;
@@ -45,13 +46,14 @@ public class OrderCreationService {
     private final SagaOrchestrator sagaOrchestrator;
 
     public OrderCreationService(OrderRepository orderRepository,
-                                 SagaInstanceRepository sagaInstanceRepository,
-                                 IdempotencyKeyRepository idempotencyKeyRepository,
-                                 PriceCatalog priceCatalog,
-                                 OutboxWriter outboxWriter,
-                                 RequestHasher requestHasher,
-                                 OrderEventFactory orderEventFactory,
-                                 SagaOrchestrator sagaOrchestrator) {
+                                SagaInstanceRepository sagaInstanceRepository,
+                                IdempotencyKeyRepository idempotencyKeyRepository,
+                                PriceCatalog priceCatalog,
+                                OutboxWriter outboxWriter,
+                                RequestHasher requestHasher,
+                                OrderEventFactory orderEventFactory,
+                                SagaOrchestrator sagaOrchestrator)
+    {
         this.orderRepository = orderRepository;
         this.sagaInstanceRepository = sagaInstanceRepository;
         this.idempotencyKeyRepository = idempotencyKeyRepository;
@@ -66,7 +68,8 @@ public class OrderCreationService {
      * Outcome of a place-order call: whether a new order was created, or an existing
      * idempotent response should be replayed.
      */
-    public sealed interface Outcome permits Created, Replayed {
+    public sealed interface Outcome permits Created, Replayed
+    {
     }
 
     public record Created(OrderAcceptedResponse body) implements Outcome {
@@ -76,14 +79,21 @@ public class OrderCreationService {
     }
 
     @Transactional
-    public Outcome placeOrder(String customerId, String idempotencyKey, String method, String path,
-                               PlaceOrderRequest request, String requestBodyHash) {
+    public Outcome placeOrder(String customerId,
+                              String idempotencyKey,
+                              String method,
+                              String path,
+                              PlaceOrderRequest request,
+                              String requestBodyHash)
+    {
         Optional<IdempotencyKeyEntity> existing = idempotencyKeyRepository.findById(
                 new IdempotencyKeyEntity.Key(idempotencyKey, customerId, method, path));
 
-        if (existing.isPresent()) {
+        if (existing.isPresent())
+        {
             IdempotencyKeyEntity record = existing.get();
-            if (!record.getRequestHash().equals(requestBodyHash)) {
+            if (!record.getRequestHash().equals(requestBodyHash))
+            {
                 throw new IdempotencyConflictException(
                         "Idempotency-Key '" + idempotencyKey + "' was already used with a different request body.");
             }
@@ -91,7 +101,8 @@ public class OrderCreationService {
         }
 
         OrderEntity order = new OrderEntity(customerId, request.currency(), request.paymentInstrumentId());
-        for (PlaceOrderRequest.OrderLineRequest lineRequest : request.lines()) {
+        for (PlaceOrderRequest.OrderLineRequest lineRequest : request.lines())
+        {
             Money unitPrice = priceCatalog.unitPriceFor(lineRequest.sku(), request.currency())
                     .orElseThrow(() -> new OrderValidationException(
                             "Unknown SKU or unsupported currency for line: " + lineRequest.sku()));
@@ -147,19 +158,25 @@ public class OrderCreationService {
      * and the Avro envelope's {@code correlationId} are typed as UUIDs. A caller sending
      * a non-UUID header must not turn a valid order into a 500.
      */
-    private static UUID correlationIdForSaga() {
+    private static UUID correlationIdForSaga()
+    {
         String current = CorrelationContext.currentCorrelationId();
-        if (current == null || current.isBlank()) {
+        if (current == null || current.isBlank())
+        {
             return UUID.randomUUID();
         }
-        try {
+        try
+        {
             return UUID.fromString(current);
-        } catch (IllegalArgumentException notAUuid) {
+        }
+        catch (IllegalArgumentException notAUuid)
+        {
             return UUID.randomUUID();
         }
     }
 
-    private String toJson(OrderAcceptedResponse response) {
+    private String toJson(OrderAcceptedResponse response)
+    {
         return "{\"orderId\":\"" + response.orderId() + "\",\"status\":\"" + response.status() + "\"}";
     }
 }

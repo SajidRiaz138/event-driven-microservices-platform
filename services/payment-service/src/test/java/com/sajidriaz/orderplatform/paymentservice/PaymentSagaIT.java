@@ -62,10 +62,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>The provider outcome is selected by the payment-method token, so each scenario is deterministic
  * rather than dependent on timing.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest (webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
-@EnabledIfEnvironmentVariable(named = "DOCKER_AVAILABLE", matches = "true")
-class PaymentSagaIT {
+@EnabledIfEnvironmentVariable (named = "DOCKER_AVAILABLE", matches = "true")
+class PaymentSagaIT
+{
 
     private static final long AMOUNT_MINOR_UNITS = 1999L;
 
@@ -79,7 +80,8 @@ class PaymentSagaIT {
     static KafkaContainer kafka = new KafkaContainer(DockerImageName.parse("apache/kafka:4.1.2"));
 
     @DynamicPropertySource
-    static void properties(DynamicPropertyRegistry registry) {
+    static void properties(DynamicPropertyRegistry registry)
+    {
         registry.add("spring.datasource.url", postgres::getJdbcUrl);
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
@@ -104,7 +106,8 @@ class PaymentSagaIT {
     private final EnvelopeCodec codec = new EnvelopeCodec();
 
     @BeforeAll
-    static void startKafkaClients() {
+    static void startKafkaClients()
+    {
         Properties producerProps = new Properties();
         producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers());
         producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
@@ -128,17 +131,21 @@ class PaymentSagaIT {
     }
 
     @AfterAll
-    static void stopKafkaClients() {
-        if (producer != null) {
+    static void stopKafkaClients()
+    {
+        if (producer != null)
+        {
             producer.close();
         }
-        if (verifier != null) {
+        if (verifier != null)
+        {
             verifier.close();
         }
     }
 
     @Test
-    void authorizeThenCapture_emitsAuthorizedThenCaptured() {
+    void authorizeThenCapture_emitsAuthorizedThenCaptured()
+    {
         UUID orderId = UUID.randomUUID();
 
         publishAuthorize(orderId, "pi_ok");
@@ -158,7 +165,8 @@ class PaymentSagaIT {
     }
 
     @Test
-    void authorize_withADecliningInstrument_emitsPaymentDeclined() {
+    void authorize_withADecliningInstrument_emitsPaymentDeclined()
+    {
         UUID orderId = UUID.randomUUID();
 
         publishAuthorize(orderId, "pi_decline");
@@ -171,7 +179,8 @@ class PaymentSagaIT {
     }
 
     @Test
-    void capture_whenTheProviderResponseIsLostButFundsMoved_goesUnknownThenReconcilesToCaptured() {
+    void capture_whenTheProviderResponseIsLostButFundsMoved_goesUnknownThenReconcilesToCaptured()
+    {
         UUID orderId = UUID.randomUUID();
 
         publishAuthorize(orderId, "pi_capture_timeout_captured");
@@ -193,15 +202,17 @@ class PaymentSagaIT {
         // funds did move, and publishes the pivot event the direct path would have published.
         Envelope captured = awaitEvent(orderId, MessageTypes.EVENT_PAYMENT_CAPTURED);
         assertThat(codec.decodePayload(captured, PaymentCaptured.class).getOrderId()).isEqualTo(orderId);
-        Awaitility.await().atMost(Duration.ofSeconds(20)).untilAsserted(() ->
-                assertThat(statusOf(orderId, "CAPTURE")).containsExactly("SUCCEEDED"));
+        Awaitility.await()
+                .atMost(Duration.ofSeconds(20))
+                .untilAsserted(() -> assertThat(statusOf(orderId, "CAPTURE")).containsExactly("SUCCEEDED"));
 
         // Exactly one capture operation exists throughout: no second charge was ever attempted.
         assertThat(operationCount(orderId, "CAPTURE")).isEqualTo(1);
     }
 
     @Test
-    void capture_whenTheResponseIsLostAndFundsDidNotMove_reconcilesToCaptureFailed() {
+    void capture_whenTheResponseIsLostAndFundsDidNotMove_reconcilesToCaptureFailed()
+    {
         UUID orderId = UUID.randomUUID();
 
         publishAuthorize(orderId, "pi_capture_timeout_lost");
@@ -213,13 +224,15 @@ class PaymentSagaIT {
         // The identical ambiguous signal resolving the other way. This is why an UNKNOWN capture can
         // never be assumed to have succeeded — or to have failed.
         awaitEvent(orderId, MessageTypes.EVENT_PAYMENT_CAPTURE_FAILED);
-        Awaitility.await().atMost(Duration.ofSeconds(20)).untilAsserted(() ->
-                assertThat(statusOf(orderId, "CAPTURE")).containsExactly("FAILED"));
+        Awaitility.await()
+                .atMost(Duration.ofSeconds(20))
+                .untilAsserted(() -> assertThat(statusOf(orderId, "CAPTURE")).containsExactly("FAILED"));
         assertThat(operationCount(orderId, "CAPTURE")).isEqualTo(1);
     }
 
     @Test
-    void capture_whoseOutcomeTheProviderCannotEstablish_staysUnknownAndIsNeverGuessed() {
+    void capture_whoseOutcomeTheProviderCannotEstablish_staysUnknownAndIsNeverGuessed()
+    {
         UUID orderId = UUID.randomUUID();
 
         publishAuthorize(orderId, "pi_capture_timeout_unanswerable");
@@ -230,13 +243,16 @@ class PaymentSagaIT {
 
         // Give reconciliation several cycles. It must keep the operation UNKNOWN and escalate rather
         // than resolve it: running out of patience is not evidence about where the money is.
-        Awaitility.await().during(Duration.ofSeconds(4)).atMost(Duration.ofSeconds(15))
+        Awaitility.await()
+                .during(Duration.ofSeconds(4))
+                .atMost(Duration.ofSeconds(15))
                 .untilAsserted(() -> assertThat(statusOf(orderId, "CAPTURE")).containsExactly("UNKNOWN"));
         assertThat(reconcileAttempts(orderId)).isPositive();
     }
 
     @Test
-    void refund_isRefusedWhileTheCaptureOutcomeIsUnknown() {
+    void refund_isRefusedWhileTheCaptureOutcomeIsUnknown()
+    {
         UUID orderId = UUID.randomUUID();
         publishAuthorize(orderId, "pi_capture_timeout_unanswerable");
         awaitEvent(orderId, MessageTypes.EVENT_PAYMENT_AUTHORIZED);
@@ -247,12 +263,15 @@ class PaymentSagaIT {
 
         // No refund operation may exist: returning money that may never have been taken is exactly
         // what ADR-0016 forbids.
-        Awaitility.await().during(Duration.ofSeconds(3)).atMost(Duration.ofSeconds(10))
+        Awaitility.await()
+                .during(Duration.ofSeconds(3))
+                .atMost(Duration.ofSeconds(10))
                 .untilAsserted(() -> assertThat(operationCount(orderId, "REFUND")).isZero());
     }
 
     @Test
-    void refund_afterAnEstablishedCapture_emitsPaymentRefunded() {
+    void refund_afterAnEstablishedCapture_emitsPaymentRefunded()
+    {
         UUID orderId = UUID.randomUUID();
         publishAuthorize(orderId, "pi_ok");
         awaitEvent(orderId, MessageTypes.EVENT_PAYMENT_AUTHORIZED);
@@ -266,7 +285,8 @@ class PaymentSagaIT {
     }
 
     @Test
-    void redeliveredAuthorizeCommand_authorizesOnlyOnce() {
+    void redeliveredAuthorizeCommand_authorizesOnlyOnce()
+    {
         UUID orderId = UUID.randomUUID();
 
         // The same bytes twice: identical messageId, which is what a consumer crash before the offset
@@ -277,13 +297,16 @@ class PaymentSagaIT {
         publishRaw(PlatformTopics.COMMANDS_PAYMENT_AUTHORIZE, orderId, command);
 
         awaitEvent(orderId, MessageTypes.EVENT_PAYMENT_AUTHORIZED);
-        Awaitility.await().during(Duration.ofSeconds(2)).atMost(Duration.ofSeconds(10))
+        Awaitility.await()
+                .during(Duration.ofSeconds(2))
+                .atMost(Duration.ofSeconds(10))
                 .untilAsserted(() -> assertThat(operationCount(orderId, "AUTHORIZE")).isEqualTo(1));
         assertThat(intentCount(orderId)).isEqualTo(1);
     }
 
     @Test
-    void operationsEndpoint_exposesTheOperationsForAnOrder() {
+    void operationsEndpoint_exposesTheOperationsForAnOrder()
+    {
         UUID orderId = UUID.randomUUID();
         publishAuthorize(orderId, "pi_ok");
         awaitEvent(orderId, MessageTypes.EVENT_PAYMENT_AUTHORIZED);
@@ -312,7 +335,8 @@ class PaymentSagaIT {
     // database helpers
     // ---------------------------------------------------------------------
 
-    private List<String> statusOf(UUID orderId, String operationType) {
+    private List<String> statusOf(UUID orderId, String operationType)
+    {
         return jdbc.queryForList("""
                 select o.status from payment.payment_operation o
                 join payment.payment_attempt a on a.id = o.attempt_id
@@ -321,7 +345,8 @@ class PaymentSagaIT {
                 """, String.class, orderId, operationType);
     }
 
-    private int operationCount(UUID orderId, String operationType) {
+    private int operationCount(UUID orderId, String operationType)
+    {
         return jdbc.queryForObject("""
                 select count(*) from payment.payment_operation o
                 join payment.payment_attempt a on a.id = o.attempt_id
@@ -330,7 +355,8 @@ class PaymentSagaIT {
                 """, Integer.class, orderId, operationType);
     }
 
-    private int reconcileAttempts(UUID orderId) {
+    private int reconcileAttempts(UUID orderId)
+    {
         return jdbc.queryForObject("""
                 select coalesce(max(o.reconcile_attempts), 0) from payment.payment_operation o
                 join payment.payment_attempt a on a.id = o.attempt_id
@@ -339,12 +365,14 @@ class PaymentSagaIT {
                 """, Integer.class, orderId);
     }
 
-    private int intentCount(UUID orderId) {
+    private int intentCount(UUID orderId)
+    {
         return jdbc.queryForObject(
                 "select count(*) from payment.payment_intent where order_id = ?", Integer.class, orderId);
     }
 
-    private int processedMessageCount() {
+    private int processedMessageCount()
+    {
         return jdbc.queryForObject(
                 "select count(*) from payment.processed_message where consumer_group = 'payment-service'",
                 Integer.class);
@@ -354,25 +382,30 @@ class PaymentSagaIT {
     // Kafka helpers — standing in for order-service
     // ---------------------------------------------------------------------
 
-    private void publishAuthorize(UUID orderId, String paymentMethodToken) {
+    private void publishAuthorize(UUID orderId, String paymentMethodToken)
+    {
         publishRaw(PlatformTopics.COMMANDS_PAYMENT_AUTHORIZE, orderId,
                 encodeAuthorize(orderId, paymentMethodToken));
     }
 
-    private byte[] encodeAuthorize(UUID orderId, String paymentMethodToken) {
+    private byte[] encodeAuthorize(UUID orderId, String paymentMethodToken)
+    {
         AuthorizePayment payload = AuthorizePayment.newBuilder()
                 .setOrderId(orderId)
                 .setCustomerId(UUID.randomUUID())
                 .setPaymentIntentId(UUID.randomUUID())
                 .setPaymentAttemptId(UUID.randomUUID())
                 .setAmount(com.sajidriaz.orderplatform.common.Money.newBuilder()
-                        .setMinorUnits(AMOUNT_MINOR_UNITS).setCurrency("USD").build())
+                        .setMinorUnits(AMOUNT_MINOR_UNITS)
+                        .setCurrency("USD")
+                        .build())
                 .setPaymentMethodToken(paymentMethodToken)
                 .build();
         return encode(MessageKind.COMMAND, MessageTypes.COMMAND_PAYMENT_AUTHORIZE, orderId, payload);
     }
 
-    private void publishCapture(UUID orderId) {
+    private void publishCapture(UUID orderId)
+    {
         // Note the ids: the orchestrator mints fresh ones per command, so these deliberately do NOT
         // match the authorize command's. The service must correlate on the order id.
         CapturePayment payload = CapturePayment.newBuilder()
@@ -384,23 +417,28 @@ class PaymentSagaIT {
                 encode(MessageKind.COMMAND, MessageTypes.COMMAND_PAYMENT_CAPTURE, orderId, payload));
     }
 
-    private void publishRefund(UUID orderId) {
+    private void publishRefund(UUID orderId)
+    {
         RefundPayment payload = RefundPayment.newBuilder()
                 .setOrderId(orderId)
                 .setPaymentIntentId(UUID.randomUUID())
                 .setPaymentOperationId(UUID.randomUUID())
                 .setAmount(com.sajidriaz.orderplatform.common.Money.newBuilder()
-                        .setMinorUnits(AMOUNT_MINOR_UNITS).setCurrency("USD").build())
+                        .setMinorUnits(AMOUNT_MINOR_UNITS)
+                        .setCurrency("USD")
+                        .build())
                 .build();
         publishRaw(PlatformTopics.COMMANDS_PAYMENT_REFUND, orderId,
                 encode(MessageKind.COMMAND, MessageTypes.COMMAND_PAYMENT_REFUND, orderId, payload));
     }
 
-    private byte[] encode(MessageKind kind, String type, UUID orderId, SpecificRecordBase payload) {
+    private byte[] encode(MessageKind kind, String type, UUID orderId, SpecificRecordBase payload)
+    {
         return codec.encodeEnvelope(kind, type, UUID.randomUUID(), null, orderId, payload);
     }
 
-    private void publishRaw(String topic, UUID orderId, byte[] envelopeBytes) {
+    private void publishRaw(String topic, UUID orderId, byte[] envelopeBytes)
+    {
         // Key = order id, matching the orchestrator: every message for one order lands on one
         // partition (ADR-0017).
         producer.send(new ProducerRecord<>(topic, orderId.toString(), envelopeBytes));
@@ -412,23 +450,29 @@ class PaymentSagaIT {
      * Non-matching records are buffered rather than discarded so a later assertion in the same class
      * can still find them.
      */
-    private Envelope awaitEvent(UUID orderId, String expectedType) {
+    private Envelope awaitEvent(UUID orderId, String expectedType)
+    {
         String aggregateId = orderId.toString();
         var iterator = buffered.iterator();
-        while (iterator.hasNext()) {
+        while (iterator.hasNext())
+        {
             Envelope envelope = iterator.next();
-            if (matches(envelope, aggregateId, expectedType)) {
+            if (matches(envelope, aggregateId, expectedType))
+            {
                 iterator.remove();
                 return envelope;
             }
         }
 
         long deadline = System.currentTimeMillis() + 25_000;
-        while (System.currentTimeMillis() < deadline) {
+        while (System.currentTimeMillis() < deadline)
+        {
             var records = verifier.poll(Duration.ofMillis(300));
-            for (ConsumerRecord<String, byte[]> record : records) {
+            for (ConsumerRecord<String, byte[]> record : records)
+            {
                 Envelope envelope = codec.decodeEnvelope(record.value());
-                if (matches(envelope, aggregateId, expectedType)) {
+                if (matches(envelope, aggregateId, expectedType))
+                {
                     return envelope;
                 }
                 buffered.add(envelope);
@@ -438,7 +482,8 @@ class PaymentSagaIT {
                 "Expected " + expectedType + " for order " + orderId + " but none arrived in time");
     }
 
-    private boolean matches(Envelope envelope, String aggregateId, String expectedType) {
+    private boolean matches(Envelope envelope, String aggregateId, String expectedType)
+    {
         return envelope.getAggregateId().equals(aggregateId) && envelope.getType().equals(expectedType);
     }
 }

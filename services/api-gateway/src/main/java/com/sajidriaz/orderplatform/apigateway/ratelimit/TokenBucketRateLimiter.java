@@ -22,19 +22,23 @@ import java.util.function.LongSupplier;
  * <p>The clock is injected so the tests can advance time instead of sleeping; a limiter tested
  * with {@code Thread.sleep} is a limiter tested flakily.
  */
-public class TokenBucketRateLimiter {
+public class TokenBucketRateLimiter
+{
 
     private final int capacity;
     private final double refillPerSecond;
     private final LongSupplier nanoTime;
     private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
 
-    public TokenBucketRateLimiter(int capacity, double refillPerSecond) {
+    public TokenBucketRateLimiter(int capacity, double refillPerSecond)
+    {
         this(capacity, refillPerSecond, System::nanoTime);
     }
 
-    TokenBucketRateLimiter(int capacity, double refillPerSecond, LongSupplier nanoTime) {
-        if (capacity <= 0 || refillPerSecond <= 0) {
+    TokenBucketRateLimiter(int capacity, double refillPerSecond, LongSupplier nanoTime)
+    {
+        if (capacity <= 0 || refillPerSecond <= 0)
+        {
             throw new IllegalArgumentException("capacity and refillPerSecond must be positive");
         }
         this.capacity = capacity;
@@ -47,7 +51,8 @@ public class TokenBucketRateLimiter {
      *
      * @return whether the request is allowed, plus the numbers the response advertises
      */
-    public Decision tryConsume(String clientKey) {
+    public Decision tryConsume(String clientKey)
+    {
         Bucket bucket = buckets.computeIfAbsent(clientKey, key -> new Bucket(capacity, nanoTime.getAsLong()));
         return bucket.tryConsume();
     }
@@ -63,19 +68,23 @@ public class TokenBucketRateLimiter {
     public record Decision(boolean allowed, int limit, int remaining, long retryAfterSeconds) {
     }
 
-    private final class Bucket {
+    private final class Bucket
+    {
 
         private double tokens;
         private long lastRefillNanos;
 
-        private Bucket(double tokens, long nowNanos) {
+        private Bucket(double tokens, long nowNanos)
+        {
             this.tokens = tokens;
             this.lastRefillNanos = nowNanos;
         }
 
-        private synchronized Decision tryConsume() {
+        private synchronized Decision tryConsume()
+        {
             refill();
-            if (tokens >= 1.0d) {
+            if (tokens >= 1.0d)
+            {
                 tokens -= 1.0d;
                 return new Decision(true, capacity, (int) Math.floor(tokens), 0L);
             }
@@ -83,10 +92,12 @@ public class TokenBucketRateLimiter {
             return new Decision(false, capacity, 0, Math.max(1L, (long) Math.ceil(secondsUntilNextToken)));
         }
 
-        private void refill() {
+        private void refill()
+        {
             long now = nanoTime.getAsLong();
             double elapsedSeconds = (now - lastRefillNanos) / 1_000_000_000.0d;
-            if (elapsedSeconds > 0) {
+            if (elapsedSeconds > 0)
+            {
                 tokens = Math.min(capacity, tokens + elapsedSeconds * refillPerSecond);
                 lastRefillNanos = now;
             }

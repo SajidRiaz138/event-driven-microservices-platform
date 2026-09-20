@@ -40,8 +40,9 @@ import static org.mockito.BDDMockito.given;
  *
  * <p>No Docker required, so this is not gated on {@code DOCKER_AVAILABLE}.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class GatewayRoutingIT {
+@SpringBootTest (webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+class GatewayRoutingIT
+{
 
     private static final String FULL_SCOPE_TOKEN = "token-with-both-order-scopes";
     private static final String READ_ONLY_TOKEN = "token-with-read-scope-only";
@@ -53,19 +54,23 @@ class GatewayRoutingIT {
     private static final int UNREACHABLE_PORT = 1;
 
     @BeforeAll
-    static void startStub() {
+    static void startStub()
+    {
         stub();
     }
 
-    private static synchronized StubDownstreamService stub() {
-        if (orderService == null) {
+    private static synchronized StubDownstreamService stub()
+    {
+        if (orderService == null)
+        {
             orderService = StubDownstreamService.start();
         }
         return orderService;
     }
 
     @DynamicPropertySource
-    static void routes(DynamicPropertyRegistry registry) {
+    static void routes(DynamicPropertyRegistry registry)
+    {
         // The whole route table is declared here: Spring Boot binds a list from the
         // highest-precedence property source that defines it rather than merging sources, so a
         // partial override would silently drop the other entries.
@@ -90,16 +95,19 @@ class GatewayRoutingIT {
     private RestTestClient client;
 
     @BeforeEach
-    void setUp() {
+    void setUp()
+    {
         RestTestClient.Builder<?> builder = RestTestClient.bindToServer();
         builder.baseUrl("http://localhost:" + port);
         client = builder.build();
         stub().reset();
         stub().respondWith(202, "{\"orderId\":\"" + UUID.randomUUID() + "\",\"status\":\"PENDING\"}");
 
-        given(jwtDecoder.decode(anyString())).willAnswer(invocation -> {
+        given(jwtDecoder.decode(anyString())).willAnswer(invocation ->
+        {
             String token = invocation.getArgument(0);
-            return switch (token) {
+            return switch (token)
+            {
                 case FULL_SCOPE_TOKEN -> jwt(token, "orders:read orders:write");
                 case READ_ONLY_TOKEN -> jwt(token, "orders:read");
                 // Anything else is what a real decoder does with a token whose signature,
@@ -110,12 +118,14 @@ class GatewayRoutingIT {
     }
 
     @Test
-    void routing_forwardsAnAuthorizedRequestDownstreamWithTheTokenAndCorrelationId() {
+    void routing_forwardsAnAuthorizedRequestDownstreamWithTheTokenAndCorrelationId()
+    {
         String body = """
                 { "lines": [ { "sku": "SKU-1001", "quantity": 2 } ], "currency": "USD", "paymentInstrumentId": "pi_1" }
                 """;
 
-        EntityExchangeResult<JsonNode> response = client.post().uri("/api/v1/orders")
+        EntityExchangeResult<JsonNode> response = client.post()
+                .uri("/api/v1/orders")
                 .contentType(MediaType.APPLICATION_JSON)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + FULL_SCOPE_TOKEN)
                 .header("Idempotency-Key", "key-1")
@@ -145,7 +155,8 @@ class GatewayRoutingIT {
     }
 
     @Test
-    void routing_generatesACorrelationIdWhenTheClientSendsNone_andAdoptsItWhenItDoes() {
+    void routing_generatesACorrelationIdWhenTheClientSendsNone_andAdoptsItWhenItDoes()
+    {
         EntityExchangeResult<JsonNode> generated = getOrder(FULL_SCOPE_TOKEN, null);
         String generatedId = generated.getResponseHeaders().getFirst("X-Correlation-Id");
         assertThat(generatedId).isNotBlank();
@@ -157,8 +168,10 @@ class GatewayRoutingIT {
     }
 
     @Test
-    void routing_forwardsTheQueryString() {
-        client.get().uri("/api/v1/orders/" + UUID.randomUUID() + "?expand=lines")
+    void routing_forwardsTheQueryString()
+    {
+        client.get()
+                .uri("/api/v1/orders/" + UUID.randomUUID() + "?expand=lines")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + FULL_SCOPE_TOKEN)
                 .exchange()
                 .returnResult(JsonNode.class);
@@ -167,8 +180,10 @@ class GatewayRoutingIT {
     }
 
     @Test
-    void edgeAuth_noToken_returns401AndNeverReachesTheService() {
-        EntityExchangeResult<JsonNode> response = client.get().uri("/api/v1/orders/" + UUID.randomUUID())
+    void edgeAuth_noToken_returns401AndNeverReachesTheService()
+    {
+        EntityExchangeResult<JsonNode> response = client.get()
+                .uri("/api/v1/orders/" + UUID.randomUUID())
                 .exchange()
                 .returnResult(JsonNode.class);
 
@@ -180,7 +195,8 @@ class GatewayRoutingIT {
     }
 
     @Test
-    void edgeAuth_invalidToken_returns401AndNeverReachesTheService() {
+    void edgeAuth_invalidToken_returns401AndNeverReachesTheService()
+    {
         EntityExchangeResult<JsonNode> response = getOrder("not-a-valid-token", null);
 
         assertThat(response.getStatus().value()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
@@ -189,8 +205,10 @@ class GatewayRoutingIT {
     }
 
     @Test
-    void edgeAuthz_readOnlyToken_cannotPlaceAnOrder_returns403() {
-        EntityExchangeResult<JsonNode> response = client.post().uri("/api/v1/orders")
+    void edgeAuthz_readOnlyToken_cannotPlaceAnOrder_returns403()
+    {
+        EntityExchangeResult<JsonNode> response = client.post()
+                .uri("/api/v1/orders")
                 .contentType(MediaType.APPLICATION_JSON)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + READ_ONLY_TOKEN)
                 .header("Idempotency-Key", "key-2")
@@ -204,10 +222,12 @@ class GatewayRoutingIT {
     }
 
     @Test
-    void tokenRoute_isPublicAndStripsTheOidcPath() {
+    void tokenRoute_isPublicAndStripsTheOidcPath()
+    {
         stub().respondWith(200, "{\"access_token\":\"issued\"}");
 
-        EntityExchangeResult<JsonNode> response = client.post().uri("/api/v1/auth/token")
+        EntityExchangeResult<JsonNode> response = client.post()
+                .uri("/api/v1/auth/token")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body("grant_type=password&username=demo-customer&password=demo-password")
                 .exchange()
@@ -220,8 +240,10 @@ class GatewayRoutingIT {
     }
 
     @Test
-    void routing_unknownPath_returns404ProblemJson() {
-        EntityExchangeResult<JsonNode> response = client.get().uri("/api/v1/payments/123")
+    void routing_unknownPath_returns404ProblemJson()
+    {
+        EntityExchangeResult<JsonNode> response = client.get()
+                .uri("/api/v1/payments/123")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + FULL_SCOPE_TOKEN)
                 .exchange()
                 .returnResult(JsonNode.class);
@@ -231,8 +253,10 @@ class GatewayRoutingIT {
     }
 
     @Test
-    void routing_unreachableDownstream_returns502ProblemJson() {
-        EntityExchangeResult<JsonNode> response = client.get().uri("/api/v1/unreachable/thing")
+    void routing_unreachableDownstream_returns502ProblemJson()
+    {
+        EntityExchangeResult<JsonNode> response = client.get()
+                .uri("/api/v1/unreachable/thing")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + FULL_SCOPE_TOKEN)
                 .exchange()
                 .returnResult(JsonNode.class);
@@ -244,17 +268,20 @@ class GatewayRoutingIT {
         assertProblemJson(response, 502);
     }
 
-    private EntityExchangeResult<JsonNode> getOrder(String token, String correlationId) {
+    private EntityExchangeResult<JsonNode> getOrder(String token, String correlationId)
+    {
         RestTestClient.RequestHeadersSpec<?> request = client.get()
                 .uri("/api/v1/orders/" + UUID.randomUUID())
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
-        if (correlationId != null) {
+        if (correlationId != null)
+        {
             request = request.header("X-Correlation-Id", correlationId);
         }
         return request.exchange().returnResult(JsonNode.class);
     }
 
-    private void assertProblemJson(EntityExchangeResult<JsonNode> response, int expectedStatus) {
+    private void assertProblemJson(EntityExchangeResult<JsonNode> response, int expectedStatus)
+    {
         assertThat(response.getResponseHeaders().getContentType()).isNotNull();
         assertThat(response.getResponseHeaders().getContentType().toString())
                 .startsWith("application/problem+json");
@@ -267,7 +294,8 @@ class GatewayRoutingIT {
         assertThat(response.getResponseHeaders().getFirst("X-Correlation-Id")).isNotNull();
     }
 
-    private static Jwt jwt(String tokenValue, String scope) {
+    private static Jwt jwt(String tokenValue, String scope)
+    {
         return Jwt.withTokenValue(tokenValue)
                 .header("alg", "RS256")
                 .subject(CUSTOMER_SUBJECT)

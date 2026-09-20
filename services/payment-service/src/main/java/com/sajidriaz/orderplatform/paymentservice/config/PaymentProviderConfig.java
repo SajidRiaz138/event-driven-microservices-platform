@@ -24,20 +24,22 @@ import java.util.List;
  * taken — because the service must not assume which one an UNKNOWN outcome represents.
  */
 @Configuration
-public class PaymentProviderConfig {
+public class PaymentProviderConfig
+{
 
     private static final Logger log = LoggerFactory.getLogger(PaymentProviderConfig.class);
 
     @Bean
-    @ConditionalOnMissingBean(PaymentProvider.class)
+    @ConditionalOnMissingBean (PaymentProvider.class)
     public PaymentProvider stubPaymentProvider(
-            @Value("${payment.provider.stub.decline-tokens:pi_decline}") List<String> declineTokens,
-            @Value("${payment.provider.stub.capture-timeout-captured-tokens:pi_capture_timeout_captured}")
-            List<String> captureTimeoutCapturedTokens,
-            @Value("${payment.provider.stub.capture-timeout-lost-tokens:pi_capture_timeout_lost}")
-            List<String> captureTimeoutLostTokens,
-            @Value("${payment.provider.stub.capture-timeout-unanswerable-tokens:pi_capture_timeout_unanswerable}")
-            List<String> captureTimeoutUnanswerableTokens) {
+                                               @Value ("${payment.provider.stub.decline-tokens:pi_decline}") List<String> declineTokens,
+                                               @Value ("${payment.provider.stub.capture-timeout-captured-tokens:pi_capture_timeout_captured}") List<
+                                                       String> captureTimeoutCapturedTokens,
+                                               @Value ("${payment.provider.stub.capture-timeout-lost-tokens:pi_capture_timeout_lost}") List<
+                                                       String> captureTimeoutLostTokens,
+                                               @Value ("${payment.provider.stub.capture-timeout-unanswerable-tokens:pi_capture_timeout_unanswerable}") List<
+                                                       String> captureTimeoutUnanswerableTokens)
+    {
         log.warn("Using the STUB payment provider. No real provider is contacted and no funds move. "
                 + "Decline tokens={}, capture-timeout(captured)={}, capture-timeout(lost)={}, "
                 + "capture-timeout(unanswerable)={}",

@@ -15,7 +15,8 @@ package com.sajidriaz.orderplatform.common.messaging;
  * <p>Deliberately framework-free: no Spring, no Kafka, no JPA — common-lib stays a
  * lightweight contracts module.
  */
-public final class PlatformTopics {
+public final class PlatformTopics
+{
 
     // Events owned by order-service
     public static final String EVENTS_ORDER_CREATED = "events.order.created.v1";
@@ -53,10 +54,12 @@ public final class PlatformTopics {
      * pattern — one DLQ per consumer group, so a message quarantined by one service never
      * lands in another service's DLQ.
      */
-    public static String deadLetterTopicFor(String topic, String consumerGroup) {
+    public static String deadLetterTopicFor(String topic, String consumerGroup)
+    {
         return topic + "." + consumerGroup + ".DLT";
     }
 
-    private PlatformTopics() {
+    private PlatformTopics()
+    {
     }
 }

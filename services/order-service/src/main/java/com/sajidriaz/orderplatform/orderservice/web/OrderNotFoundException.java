@@ -8,9 +8,11 @@ import java.util.NoSuchElementException;
  * and "exists but is someone else's" must be indistinguishable to the caller
  * (404, never 403; existence is not revealed).
  */
-public class OrderNotFoundException extends NoSuchElementException {
+public class OrderNotFoundException extends NoSuchElementException
+{
 
-    public OrderNotFoundException(String message) {
+    public OrderNotFoundException(String message)
+    {
         super(message);
     }
 }

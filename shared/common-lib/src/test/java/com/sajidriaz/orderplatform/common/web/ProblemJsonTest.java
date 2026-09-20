@@ -6,10 +6,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class ProblemJsonTest {
+class ProblemJsonTest
+{
 
     @Test
-    void render_producesTheRfc9457MembersAndCorrelationIdExtension() {
+    void render_producesTheRfc9457MembersAndCorrelationIdExtension()
+    {
         String json = ProblemJson.render(401, "unauthenticated", "Unauthorized",
                 "A valid credential is required.", "/api/v1/orders", "corr-1");
 
@@ -22,7 +24,8 @@ class ProblemJsonTest {
     }
 
     @Test
-    void render_omitsCorrelationIdWhenAbsent() {
+    void render_omitsCorrelationIdWhenAbsent()
+    {
         assertFalse(ProblemJson.render(403, "forbidden", "Forbidden", "Nope.", "/x", null)
                 .contains("correlationId"));
         assertFalse(ProblemJson.render(403, "forbidden", "Forbidden", "Nope.", "/x", "  ")
@@ -30,7 +33,8 @@ class ProblemJsonTest {
     }
 
     @Test
-    void render_escapesQuotesSoACraftedPathCannotBreakTheBody() {
+    void render_escapesQuotesSoACraftedPathCannotBreakTheBody()
+    {
         String json = ProblemJson.render(401, "unauthenticated", "Unauthorized", "d",
                 "/api/v1/\"or\\ders", "c");
 
@@ -38,7 +42,8 @@ class ProblemJsonTest {
     }
 
     @Test
-    void render_escapesControlCharacters() {
+    void render_escapesControlCharacters()
+    {
         String json = ProblemJson.render(400, "malformed-request", "Bad request",
                 "line\nbreak\ttab", "/x", "c");
 

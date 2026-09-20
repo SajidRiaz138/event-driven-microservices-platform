@@ -9,7 +9,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class RouteResolverTest {
+class RouteResolverTest
+{
 
     private final RouteResolver resolver = new RouteResolver(properties(
             new GatewayProperties.Route("orders", "/api/v1/orders", "http://order-service:8080", false),
@@ -18,7 +19,8 @@ class RouteResolverTest {
                     "http://keycloak:8080/realms/order-platform/protocol/openid-connect/token", true)));
 
     @Test
-    void forwardsToTheOwningServiceKeepingThePath() {
+    void forwardsToTheOwningServiceKeepingThePath()
+    {
         RouteResolver.ResolvedRoute resolved = resolver.resolve("/api/v1/orders").orElseThrow();
 
         assertThat(resolved.route().id()).isEqualTo("orders");
@@ -26,38 +28,44 @@ class RouteResolverTest {
     }
 
     @Test
-    void keepsPathVariables() {
+    void keepsPathVariables()
+    {
         assertThat(resolver.resolve("/api/v1/orders/8f1b/status").orElseThrow().downstreamUri())
                 .isEqualTo("http://order-service:8080/api/v1/orders/8f1b/status");
     }
 
     @Test
-    void longestPrefixWinsSoAMoreSpecificRouteCanBeSplitOut() {
+    void longestPrefixWinsSoAMoreSpecificRouteCanBeSplitOut()
+    {
         RouteResolver.ResolvedRoute resolved = resolver.resolve("/api/v1/orders/summary").orElseThrow();
 
         assertThat(resolved.route().id()).isEqualTo("order-summary");
     }
 
     @Test
-    void stripsThePrefixWhenTheRouteAsksForIt() {
+    void stripsThePrefixWhenTheRouteAsksForIt()
+    {
         // The OIDC path is an identity-provider detail; the public contract is /api/v1/auth/token.
         assertThat(resolver.resolve("/api/v1/auth/token").orElseThrow().downstreamUri())
                 .isEqualTo("http://keycloak:8080/realms/order-platform/protocol/openid-connect/token");
     }
 
     @Test
-    void matchesWholeSegmentsOnly() {
+    void matchesWholeSegmentsOnly()
+    {
         // A plain startsWith would hand this to order-service.
         assertThat(resolver.resolve("/api/v1/ordersearch")).isEmpty();
     }
 
     @Test
-    void unroutedPathsResolveToNothing() {
+    void unroutedPathsResolveToNothing()
+    {
         assertThat(resolver.resolve("/api/v1/payments")).isEqualTo(Optional.empty());
     }
 
     @Test
-    void toleratesATrailingSlashOnTheConfiguredUri() {
+    void toleratesATrailingSlashOnTheConfiguredUri()
+    {
         RouteResolver trailingSlash = new RouteResolver(properties(
                 new GatewayProperties.Route("orders", "/api/v1/orders", "http://order-service:8080/", false)));
 
@@ -65,7 +73,8 @@ class RouteResolverTest {
                 .isEqualTo("http://order-service:8080/api/v1/orders");
     }
 
-    private GatewayProperties properties(GatewayProperties.Route... routes) {
+    private GatewayProperties properties(GatewayProperties.Route... routes)
+    {
         return new GatewayProperties(List.of(routes),
                 new GatewayProperties.RateLimit(true, 60, 20),
                 Duration.ofSeconds(2), Duration.ofSeconds(10), "order-platform");

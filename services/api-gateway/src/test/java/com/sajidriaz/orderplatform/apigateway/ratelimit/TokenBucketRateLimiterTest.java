@@ -11,12 +11,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Time is driven by a controllable clock rather than by sleeping, so the refill behaviour is
  * asserted exactly instead of approximately.
  */
-class TokenBucketRateLimiterTest {
+class TokenBucketRateLimiterTest
+{
 
     private final AtomicLong nanos = new AtomicLong();
 
     @Test
-    void allowsUpToCapacityThenDenies() {
+    void allowsUpToCapacityThenDenies()
+    {
         TokenBucketRateLimiter limiter = limiter(3, 1.0d);
 
         assertThat(limiter.tryConsume("client").allowed()).isTrue();
@@ -30,7 +32,8 @@ class TokenBucketRateLimiterTest {
     }
 
     @Test
-    void reportsRemainingTokens() {
+    void reportsRemainingTokens()
+    {
         TokenBucketRateLimiter limiter = limiter(3, 1.0d);
 
         assertThat(limiter.tryConsume("client").remaining()).isEqualTo(2);
@@ -39,7 +42,8 @@ class TokenBucketRateLimiterTest {
     }
 
     @Test
-    void refillsOverTime() {
+    void refillsOverTime()
+    {
         TokenBucketRateLimiter limiter = limiter(2, 1.0d);
         limiter.tryConsume("client");
         limiter.tryConsume("client");
@@ -52,7 +56,8 @@ class TokenBucketRateLimiterTest {
     }
 
     @Test
-    void neverRefillsBeyondCapacity() {
+    void neverRefillsBeyondCapacity()
+    {
         TokenBucketRateLimiter limiter = limiter(2, 1.0d);
         limiter.tryConsume("client");
 
@@ -66,7 +71,8 @@ class TokenBucketRateLimiterTest {
     }
 
     @Test
-    void retryAfterIsAtLeastOneSecondAndReflectsTheRefillRate() {
+    void retryAfterIsAtLeastOneSecondAndReflectsTheRefillRate()
+    {
         TokenBucketRateLimiter limiter = limiter(1, 0.25d);
         limiter.tryConsume("client");
 
@@ -78,7 +84,8 @@ class TokenBucketRateLimiterTest {
     }
 
     @Test
-    void bucketsArePerClient() {
+    void bucketsArePerClient()
+    {
         TokenBucketRateLimiter limiter = limiter(1, 1.0d);
 
         assertThat(limiter.tryConsume("client-a").allowed()).isTrue();
@@ -88,18 +95,21 @@ class TokenBucketRateLimiterTest {
     }
 
     @Test
-    void rejectsNonsensicalConfiguration() {
+    void rejectsNonsensicalConfiguration()
+    {
         assertThatThrownBy(() -> new TokenBucketRateLimiter(0, 1.0d))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new TokenBucketRateLimiter(1, 0.0d))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
-    private TokenBucketRateLimiter limiter(int capacity, double refillPerSecond) {
+    private TokenBucketRateLimiter limiter(int capacity, double refillPerSecond)
+    {
         return new TokenBucketRateLimiter(capacity, refillPerSecond, nanos::get);
     }
 
-    private void advanceSeconds(long seconds) {
+    private void advanceSeconds(long seconds)
+    {
         nanos.addAndGet(seconds * 1_000_000_000L);
     }
 }

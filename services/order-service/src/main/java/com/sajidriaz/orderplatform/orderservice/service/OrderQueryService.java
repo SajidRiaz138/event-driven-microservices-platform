@@ -18,29 +18,34 @@ import java.util.UUID;
  * "not owned").
  */
 @Service
-public class OrderQueryService {
+public class OrderQueryService
+{
 
     private final OrderRepository orderRepository;
 
-    public OrderQueryService(OrderRepository orderRepository) {
+    public OrderQueryService(OrderRepository orderRepository)
+    {
         this.orderRepository = orderRepository;
     }
 
-    @Transactional(readOnly = true)
-    public OrderResponse getOwnedOrder(UUID orderId, String callerCustomerId) {
+    @Transactional (readOnly = true)
+    public OrderResponse getOwnedOrder(UUID orderId, String callerCustomerId)
+    {
         OrderEntity order = orderRepository.findById(orderId)
                 .filter(o -> o.isOwnedBy(callerCustomerId))
                 .orElseThrow(() -> new OrderNotFoundException("Order not found: " + orderId));
         return toResponse(order);
     }
 
-    private OrderResponse toResponse(OrderEntity order) {
+    private OrderResponse toResponse(OrderEntity order)
+    {
         String publicStatus = toPublicStatus(order.getStatus());
         String reason = order.getStatus() == SagaStatus.CANCELLED && order.getCancellationReason() != null
                 ? order.getCancellationReason().name()
                 : null;
 
-        var lines = order.getLines().stream()
+        var lines = order.getLines()
+                .stream()
                 .map(this::toLineResponse)
                 .toList();
 
@@ -54,7 +59,8 @@ public class OrderQueryService {
                 order.getUpdatedAt());
     }
 
-    private OrderResponse.OrderLineResponse toLineResponse(OrderLineEntity line) {
+    private OrderResponse.OrderLineResponse toLineResponse(OrderLineEntity line)
+    {
         return new OrderResponse.OrderLineResponse(
                 line.getSku(),
                 line.getQuantity(),
@@ -68,8 +74,10 @@ public class OrderQueryService {
      * {@code PENDING|CONFIRMED|CANCELLED} view (REST-API-GUIDE §3): "PENDING includes
      * normal processing AND payment reconciliation".
      */
-    private String toPublicStatus(SagaStatus status) {
-        return switch (status) {
+    private String toPublicStatus(SagaStatus status)
+    {
+        return switch (status)
+        {
             case CONFIRMED -> "CONFIRMED";
             case CANCELLED -> "CANCELLED";
             default -> "PENDING";

@@ -19,64 +19,77 @@ import java.util.UUID;
  * reapplying the effect (scenario S-10).
  */
 @Entity
-@Table(name = "processed_message", schema = "payment")
-public class ProcessedMessageEntity {
+@Table (name = "processed_message", schema = "payment")
+public class ProcessedMessageEntity
+{
 
     @EmbeddedId
     private Key id;
 
     @CreationTimestamp
-    @Column(name = "processed_at", nullable = false, updatable = false)
+    @Column (name = "processed_at", nullable = false, updatable = false)
     private Instant processedAt;
 
-    protected ProcessedMessageEntity() {
+    protected ProcessedMessageEntity()
+    {
         // JPA
     }
 
-    public ProcessedMessageEntity(UUID messageId, String consumerGroup) {
+    public ProcessedMessageEntity(UUID messageId, String consumerGroup)
+    {
         this.id = new Key(messageId, consumerGroup);
     }
 
-    public Key getId() {
+    public Key getId()
+    {
         return id;
     }
 
-    public Instant getProcessedAt() {
+    public Instant getProcessedAt()
+    {
         return processedAt;
     }
 
     @Embeddable
-    public static class Key implements Serializable {
+    public static class Key implements Serializable
+    {
 
-        @Column(name = "message_id", nullable = false)
+        @Column (name = "message_id", nullable = false)
         private UUID messageId;
 
-        @Column(name = "consumer_group", nullable = false, length = 160)
+        @Column (name = "consumer_group", nullable = false, length = 160)
         private String consumerGroup;
 
-        protected Key() {
+        protected Key()
+        {
             // JPA
         }
 
-        public Key(UUID messageId, String consumerGroup) {
+        public Key(UUID messageId, String consumerGroup)
+        {
             this.messageId = messageId;
             this.consumerGroup = consumerGroup;
         }
 
-        public UUID getMessageId() {
+        public UUID getMessageId()
+        {
             return messageId;
         }
 
-        public String getConsumerGroup() {
+        public String getConsumerGroup()
+        {
             return consumerGroup;
         }
 
         @Override
-        public boolean equals(Object o) {
-            if (this == o) {
+        public boolean equals(Object o)
+        {
+            if (this == o)
+            {
                 return true;
             }
-            if (!(o instanceof Key key)) {
+            if (!(o instanceof Key key))
+            {
                 return false;
             }
             return Objects.equals(messageId, key.messageId)
@@ -84,7 +97,8 @@ public class ProcessedMessageEntity {
         }
 
         @Override
-        public int hashCode() {
+        public int hashCode()
+        {
             return Objects.hash(messageId, consumerGroup);
         }
     }

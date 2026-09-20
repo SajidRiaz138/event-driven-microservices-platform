@@ -49,10 +49,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <p>Requires Docker, so it is gated like every other container-backed test here.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest (webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
-@EnabledIfEnvironmentVariable(named = "DOCKER_AVAILABLE", matches = "true")
-class KeycloakRealmImportIT {
+@EnabledIfEnvironmentVariable (named = "DOCKER_AVAILABLE", matches = "true")
+class KeycloakRealmImportIT
+{
 
     private static final String REALM = "order-platform";
     private static final String CLIENT_ID = "order-platform-web";
@@ -67,7 +68,7 @@ class KeycloakRealmImportIT {
             Path.of("..", "auth-service", "realm", "order-platform-realm.json").toAbsolutePath().normalize();
 
     @Container
-    @SuppressWarnings("rawtypes")
+    @SuppressWarnings ("rawtypes")
     static GenericContainer keycloak = new GenericContainer(DockerImageName.parse("quay.io/keycloak/keycloak:26.4"))
             .withExposedPorts(8080)
             .withEnv("KC_BOOTSTRAP_ADMIN_USERNAME", "admin")
@@ -84,19 +85,23 @@ class KeycloakRealmImportIT {
 
     private static StubDownstreamService orderService;
 
-    private static synchronized StubDownstreamService stub() {
-        if (orderService == null) {
+    private static synchronized StubDownstreamService stub()
+    {
+        if (orderService == null)
+        {
             orderService = StubDownstreamService.start();
         }
         return orderService;
     }
 
-    private static String issuerUri() {
+    private static String issuerUri()
+    {
         return "http://" + keycloak.getHost() + ":" + keycloak.getMappedPort(8080) + "/realms/" + REALM;
     }
 
     @DynamicPropertySource
-    static void configuration(DynamicPropertyRegistry registry) {
+    static void configuration(DynamicPropertyRegistry registry)
+    {
         // The gateway trusts this issuer and fetches its keys from it — no test double anywhere
         // in the validation path.
         registry.add("spring.security.oauth2.resourceserver.jwt.issuer-uri", KeycloakRealmImportIT::issuerUri);
@@ -118,7 +123,8 @@ class KeycloakRealmImportIT {
     private RestTestClient client;
 
     @BeforeEach
-    void setUp() {
+    void setUp()
+    {
         RestTestClient.Builder<?> builder = RestTestClient.bindToServer();
         builder.baseUrl("http://localhost:" + port);
         client = builder.build();
@@ -127,7 +133,8 @@ class KeycloakRealmImportIT {
     }
 
     @Test
-    void theRealmExportIsTheFileComposeMounts() throws Exception {
+    void theRealmExportIsTheFileComposeMounts() throws Exception
+    {
         // Guards the one thing this test cannot assert by behaviour: that it is exercising the
         // committed realm, at the path compose refers to.
         assertThat(Files.exists(REALM_EXPORT)).as("realm export at %s", REALM_EXPORT).isTrue();
@@ -139,7 +146,8 @@ class KeycloakRealmImportIT {
     }
 
     @Test
-    void keycloakIssuesAnRs256TokenWithThePlatformAudienceAndOrderScopes() {
+    void keycloakIssuesAnRs256TokenWithThePlatformAudienceAndOrderScopes()
+    {
         String accessToken = accessToken(null);
 
         assertThat(jwtSegment(accessToken, 0))
@@ -158,10 +166,12 @@ class KeycloakRealmImportIT {
     }
 
     @Test
-    void theGatewayAcceptsARealKeycloakTokenAndForwardsIt() {
+    void theGatewayAcceptsARealKeycloakTokenAndForwardsIt()
+    {
         String accessToken = accessToken(null);
 
-        EntityExchangeResult<JsonNode> response = client.get().uri("/api/v1/orders/" + UUID.randomUUID())
+        EntityExchangeResult<JsonNode> response = client.get()
+                .uri("/api/v1/orders/" + UUID.randomUUID())
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                 .exchange()
                 .returnResult(JsonNode.class);
@@ -177,8 +187,10 @@ class KeycloakRealmImportIT {
     }
 
     @Test
-    void theGatewayRejectsATokenThisRealmDidNotIssue() {
-        EntityExchangeResult<JsonNode> response = client.get().uri("/api/v1/orders/" + UUID.randomUUID())
+    void theGatewayRejectsATokenThisRealmDidNotIssue()
+    {
+        EntityExchangeResult<JsonNode> response = client.get()
+                .uri("/api/v1/orders/" + UUID.randomUUID())
                 .header(HttpHeaders.AUTHORIZATION, "Bearer not.a.real-token")
                 .exchange()
                 .returnResult(JsonNode.class);
@@ -188,8 +200,10 @@ class KeycloakRealmImportIT {
     }
 
     @Test
-    void theTokenRouteThroughTheGatewayIssuesAToken() {
-        EntityExchangeResult<JsonNode> response = client.post().uri("/api/v1/auth/token")
+    void theTokenRouteThroughTheGatewayIssuesAToken()
+    {
+        EntityExchangeResult<JsonNode> response = client.post()
+                .uri("/api/v1/auth/token")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body("grant_type=password&client_id=" + CLIENT_ID
                         + "&username=" + USERNAME + "&password=" + PASSWORD)
@@ -203,14 +217,16 @@ class KeycloakRealmImportIT {
     }
 
     @Test
-    void theAdministrativeScopeIsGrantedOnlyWhenAskedFor() {
+    void theAdministrativeScopeIsGrantedOnlyWhenAskedFor()
+    {
         // orders:write:any is an optional client scope in the realm export, so an ordinary
         // session never silently carries the ability to order on somebody else's behalf.
         assertThat(jwtSegment(accessToken(null), 1)).doesNotContain("orders:write:any");
         assertThat(jwtSegment(accessToken("orders:write:any"), 1)).contains("orders:write:any");
     }
 
-    private String accessToken(String requestedScope) {
+    private String accessToken(String requestedScope)
+    {
         String form = "grant_type=password&client_id=" + CLIENT_ID
                 + "&username=" + USERNAME + "&password=" + PASSWORD
                 + (requestedScope == null ? "" : "&scope=" + requestedScope);
@@ -225,7 +241,8 @@ class KeycloakRealmImportIT {
         return (String) tokenResponse.get("access_token");
     }
 
-    private String jwtSegment(String jwt, int index) {
+    private String jwtSegment(String jwt, int index)
+    {
         return new String(Base64.getUrlDecoder().decode(jwt.split("\\.")[index]));
     }
 }

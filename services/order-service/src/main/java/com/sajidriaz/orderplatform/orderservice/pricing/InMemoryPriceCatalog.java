@@ -13,7 +13,8 @@ import java.util.Optional;
  * request is a validation failure (422), not a silent conversion.
  */
 @Component
-public class InMemoryPriceCatalog implements PriceCatalog {
+public class InMemoryPriceCatalog implements PriceCatalog
+{
 
     private static final String CATALOG_CURRENCY = "USD";
 
@@ -22,16 +23,18 @@ public class InMemoryPriceCatalog implements PriceCatalog {
             "SKU-1002", 2999L,
             "SKU-1003", 999L,
             "SKU-2001", 4999L,
-            "SKU-2002", 12999L
-    );
+            "SKU-2002", 12999L);
 
     @Override
-    public Optional<Money> unitPriceFor(String sku, String currency) {
-        if (!CATALOG_CURRENCY.equals(currency)) {
+    public Optional<Money> unitPriceFor(String sku, String currency)
+    {
+        if (!CATALOG_CURRENCY.equals(currency))
+        {
             return Optional.empty();
         }
         Long minorUnits = PRICES_MINOR_UNITS.get(sku);
-        if (minorUnits == null) {
+        if (minorUnits == null)
+        {
             return Optional.empty();
         }
         return Optional.of(new Money(minorUnits, currency));

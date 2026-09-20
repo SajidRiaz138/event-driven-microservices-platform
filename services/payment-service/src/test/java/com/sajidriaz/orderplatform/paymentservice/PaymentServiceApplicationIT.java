@@ -23,8 +23,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest
 @Testcontainers
-@EnabledIfEnvironmentVariable(named = "DOCKER_AVAILABLE", matches = "true")
-class PaymentServiceApplicationIT {
+@EnabledIfEnvironmentVariable (named = "DOCKER_AVAILABLE", matches = "true")
+class PaymentServiceApplicationIT
+{
 
     @Container
     static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:17.6")
@@ -33,7 +34,8 @@ class PaymentServiceApplicationIT {
             .withPassword("testpass");
 
     @DynamicPropertySource
-    static void properties(DynamicPropertyRegistry registry) {
+    static void properties(DynamicPropertyRegistry registry)
+    {
         registry.add("spring.datasource.url", postgres::getJdbcUrl);
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
@@ -44,7 +46,8 @@ class PaymentServiceApplicationIT {
     private JdbcTemplate jdbc;
 
     @Test
-    void contextLoadsAndTheSchemaIsOwnedByThisService() {
+    void contextLoadsAndTheSchemaIsOwnedByThisService()
+    {
         // Schema per service (ADR-0007): these tables live in `payment`, not in public.
         List<Map<String, Object>> tables = jdbc.queryForList("""
                 select table_schema, table_name from information_schema.tables
@@ -54,14 +57,14 @@ class PaymentServiceApplicationIT {
                 """);
 
         assertThat(tables).hasSize(5);
-        assertThat(tables).allSatisfy(row ->
-                assertThat(row.get("table_schema"))
-                        .as("tables must be owned by this service's own schema, found %s", row)
-                        .isEqualTo("payment"));
+        assertThat(tables).allSatisfy(row -> assertThat(row.get("table_schema"))
+                .as("tables must be owned by this service's own schema, found %s", row)
+                .isEqualTo("payment"));
     }
 
     @Test
-    void theOperationsModelHasNoColumnCardDataCouldOccupy() {
+    void theOperationsModelHasNoColumnCardDataCouldOccupy()
+    {
         // ADR-0016 §4 / ADR-0009: no raw PAN is ever stored. Asserted structurally rather than by
         // reviewing code, so a future migration adding such a column fails this test.
         List<String> columns = jdbc.queryForList("""
@@ -78,7 +81,8 @@ class PaymentServiceApplicationIT {
     }
 
     @Test
-    void captureOnceIsEnforcedByTheDatabase() {
+    void captureOnceIsEnforcedByTheDatabase()
+    {
         // The application checks for an existing capture before calling the provider, but a check in
         // application code can be lost to a race. This unique index is what makes capture-once hold
         // even then (ADR-0016 §2).
@@ -91,7 +95,8 @@ class PaymentServiceApplicationIT {
     }
 
     @Test
-    void thereIsNoUniqueConstraintOnAnOrderIdInTheOperationsTable() {
+    void thereIsNoUniqueConstraintOnAnOrderIdInTheOperationsTable()
+    {
         // ADR-0016's central correction: deduplicating payments on the order forbids the legitimate
         // second attempt after a declined card. This asserts the mistake has not crept back in.
         List<String> operationIndexes = jdbc.queryForList("""
@@ -99,7 +104,8 @@ class PaymentServiceApplicationIT {
                 where schemaname = 'payment' and tablename = 'payment_operation'
                 """, String.class);
 
-        assertThat(operationIndexes).noneSatisfy(definition -> {
+        assertThat(operationIndexes).noneSatisfy(definition ->
+        {
             assertThat(definition).contains("UNIQUE");
             assertThat(definition).contains("order_id");
         });

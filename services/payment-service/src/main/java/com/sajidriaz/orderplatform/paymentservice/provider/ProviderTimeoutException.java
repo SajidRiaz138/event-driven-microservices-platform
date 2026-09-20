@@ -1,26 +1,34 @@
 package com.sajidriaz.orderplatform.paymentservice.provider;
 
 /**
- * The provider did not answer in a way that establishes what happened: a timeout, a dropped
- * connection, a crash mid-call. The operation may or may not have taken effect.
+ * Indicates that the provider did not return a definitive response, so the outcome of the
+ * operation is unknown.
  *
- * <p>This is a distinct type precisely so it cannot be handled like an ordinary failure. Catching
- * it and recording {@code FAILED} would risk refunding a capture that never happened; ignoring it
- * and recording {@code SUCCEEDED} would confirm an order nobody paid for. The only correct handling
- * is to record {@code UNKNOWN} and reconcile (ADR-0016 §2).
- *
- * @param providerReference a reference obtained before the response was lost, if any; often null
+ * <p>This is a distinct exception type so that it cannot be handled like an ordinary failure.
+ * Recording {@code FAILED} could result in incorrect compensation if the operation actually
+ * succeeded, while recording {@code SUCCEEDED} could confirm an operation that never completed.
+ * The outcome should therefore be recorded as {@code UNKNOWN} and reconciled according to
+ * ADR-0016, Section 2.
  */
-public class ProviderTimeoutException extends RuntimeException {
-
+public class ProviderTimeoutException extends RuntimeException
+{
     private final String providerReference;
 
-    public ProviderTimeoutException(String message, String providerReference) {
+    /**
+     * Creates an exception for an operation whose provider outcome is unknown.
+     *
+     * @param message description of the failure
+     * @param providerReference reference obtained from the provider before the response was lost;
+     *                          may be {@code null}
+     */
+    public ProviderTimeoutException(String message, String providerReference)
+    {
         super(message);
         this.providerReference = providerReference;
     }
 
-    public String getProviderReference() {
+    public String getProviderReference()
+    {
         return providerReference;
     }
 }

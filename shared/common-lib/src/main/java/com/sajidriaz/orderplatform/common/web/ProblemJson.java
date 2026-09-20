@@ -20,7 +20,8 @@ package com.sajidriaz.orderplatform.common.web;
  * is consumed by services that do not have Spring Security on the classpath, and the field
  * set here is fixed and small enough that hand-writing it is safer than adding a dependency.
  */
-public final class ProblemJson {
+public final class ProblemJson
+{
 
     /** Base URI for problem types, matching the services' own handlers. */
     public static final String PROBLEM_BASE = "https://docs.platform.local/problems/";
@@ -28,7 +29,8 @@ public final class ProblemJson {
     /** The media type this class produces. */
     public static final String CONTENT_TYPE = "application/problem+json";
 
-    private ProblemJson() {
+    private ProblemJson()
+    {
     }
 
     /**
@@ -42,16 +44,32 @@ public final class ProblemJson {
      * @param correlationId platform correlation id; omitted from the body when {@code null}
      * @return a JSON document suitable for an {@code application/problem+json} response body
      */
-    public static String render(int status, String typeSlug, String title, String detail,
-                                String instance, String correlationId) {
+    public static String render(int status,
+                                String typeSlug,
+                                String title,
+                                String detail,
+                                String instance,
+                                String correlationId)
+    {
         StringBuilder json = new StringBuilder(256);
         json.append('{')
-                .append("\"type\":\"").append(escape(PROBLEM_BASE + typeSlug)).append("\",")
-                .append("\"title\":\"").append(escape(title)).append("\",")
-                .append("\"status\":").append(status).append(',')
-                .append("\"detail\":\"").append(escape(detail)).append("\",")
-                .append("\"instance\":\"").append(escape(instance)).append('"');
-        if (correlationId != null && !correlationId.isBlank()) {
+                .append("\"type\":\"")
+                .append(escape(PROBLEM_BASE + typeSlug))
+                .append("\",")
+                .append("\"title\":\"")
+                .append(escape(title))
+                .append("\",")
+                .append("\"status\":")
+                .append(status)
+                .append(',')
+                .append("\"detail\":\"")
+                .append(escape(detail))
+                .append("\",")
+                .append("\"instance\":\"")
+                .append(escape(instance))
+                .append('"');
+        if (correlationId != null && !correlationId.isBlank())
+        {
             json.append(",\"correlationId\":\"").append(escape(correlationId)).append('"');
         }
         return json.append('}').toString();
@@ -63,23 +81,30 @@ public final class ProblemJson {
      * unescaped quote would produce a malformed body and turn a clean 401 into a parse error
      * at the client.
      */
-    private static String escape(String value) {
-        if (value == null) {
+    private static String escape(String value)
+    {
+        if (value == null)
+        {
             return "";
         }
         StringBuilder escaped = new StringBuilder(value.length() + 8);
-        for (int i = 0; i < value.length(); i++) {
+        for (int i = 0; i < value.length(); i++)
+        {
             char c = value.charAt(i);
-            switch (c) {
+            switch (c)
+            {
                 case '"' -> escaped.append("\\\"");
                 case '\\' -> escaped.append("\\\\");
                 case '\n' -> escaped.append("\\n");
                 case '\r' -> escaped.append("\\r");
                 case '\t' -> escaped.append("\\t");
                 default -> {
-                    if (c < 0x20) {
+                    if (c < 0x20)
+                    {
                         escaped.append(String.format("\\u%04x", (int) c));
-                    } else {
+                    }
+                    else
+                    {
                         escaped.append(c);
                     }
                 }

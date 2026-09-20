@@ -6,7 +6,8 @@ package com.sajidriaz.orderplatform.common.saga;
  * are terminal; {@link #REQUIRES_RECONCILIATION} is a non-terminal holding state for an
  * unknown payment outcome (ADR-0016).
  */
-public enum SagaStatus {
+public enum SagaStatus
+{
     PENDING,
     STOCK_RESERVED,
     PAYMENT_AUTHORIZED,
@@ -16,7 +17,8 @@ public enum SagaStatus {
     CONFIRMED,
     CANCELLED;
 
-    public boolean isTerminal() {
+    public boolean isTerminal()
+    {
         return this == CONFIRMED || this == CANCELLED;
     }
 }

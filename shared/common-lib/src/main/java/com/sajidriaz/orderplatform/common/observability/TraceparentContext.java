@@ -21,25 +21,30 @@ package com.sajidriaz.orderplatform.common.observability;
  * {@code finally} block at every entry point — the holder is scoped to one unit of work,
  * never left set on a pooled or reused carrier.
  */
-public final class TraceparentContext {
+public final class TraceparentContext
+{
 
     /** W3C Trace Context header name (lower-case per the specification). */
     public static final String HEADER_TRACEPARENT = "traceparent";
 
     private static final ThreadLocal<String> CURRENT = new ThreadLocal<>();
 
-    private TraceparentContext() {
+    private TraceparentContext()
+    {
     }
 
     /** Adopt the inbound traceparent, if a non-blank one was supplied. */
-    public static void set(String traceparent) {
-        if (traceparent != null && !traceparent.isBlank()) {
+    public static void set(String traceparent)
+    {
+        if (traceparent != null && !traceparent.isBlank())
+        {
             CURRENT.set(traceparent);
         }
     }
 
     /** The current traceparent, or {@code null} when none was supplied. */
-    public static String current() {
+    public static String current()
+    {
         return CURRENT.get();
     }
 
@@ -49,8 +54,10 @@ public final class TraceparentContext {
      * value is absent or not in the expected shape — a malformed header from a caller must
      * never break message or request handling.
      */
-    public static String traceIdOf(String traceparent) {
-        if (traceparent == null) {
+    public static String traceIdOf(String traceparent)
+    {
+        if (traceparent == null)
+        {
             return null;
         }
         String[] parts = traceparent.split("-");
@@ -58,7 +65,8 @@ public final class TraceparentContext {
     }
 
     /** Clear the holder. Must run in a {@code finally} so threads are never reused dirty. */
-    public static void clear() {
+    public static void clear()
+    {
         CURRENT.remove();
     }
 }

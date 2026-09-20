@@ -36,9 +36,11 @@ import java.util.List;
  * resource servers (payment-service, inventory-service — Kafka consumers with no customer-facing
  * HTTP surface) are unaffected and do not inherit Spring Security transitively.
  */
-public final class PlatformJwtDecoders {
+public final class PlatformJwtDecoders
+{
 
-    private PlatformJwtDecoders() {
+    private PlatformJwtDecoders()
+    {
     }
 
     /**
@@ -47,7 +49,8 @@ public final class PlatformJwtDecoders {
      * @param issuer    expected {@code iss} claim, i.e. the realm URL
      * @param audience  expected entry in the {@code aud} claim
      */
-    public static JwtDecoder rs256(String jwkSetUri, String issuer, String audience) {
+    public static JwtDecoder rs256(String jwkSetUri, String issuer, String audience)
+    {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri)
                 .jwsAlgorithm(SignatureAlgorithm.RS256)
                 .build();
@@ -63,10 +66,13 @@ public final class PlatformJwtDecoders {
      * contract rather than leaning on a convenience class, so the failure it produces (an
      * {@code invalid_token} error, which the resource server renders as 401) is explicit.
      */
-    static OAuth2TokenValidator<Jwt> audienceValidator(String audience) {
-        return jwt -> {
+    static OAuth2TokenValidator<Jwt> audienceValidator(String audience)
+    {
+        return jwt ->
+        {
             List<String> audiences = jwt.getAudience();
-            if (audiences != null && audiences.contains(audience)) {
+            if (audiences != null && audiences.contains(audience))
+            {
                 return OAuth2TokenValidatorResult.success();
             }
             return OAuth2TokenValidatorResult.failure(new OAuth2Error(

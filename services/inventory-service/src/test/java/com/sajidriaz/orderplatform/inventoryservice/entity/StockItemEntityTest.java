@@ -9,10 +9,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * The availability invariant in isolation: {@code available = onHand - reserved}, and no
  * operation may make {@code reserved} exceed {@code onHand} or drive either negative.
  */
-class StockItemEntityTest {
+class StockItemEntityTest
+{
 
     @Test
-    void availableIsOnHandMinusReserved() {
+    void availableIsOnHandMinusReserved()
+    {
         StockItemEntity item = new StockItemEntity("SKU-1001", 10, 4);
         assertThat(item.available()).isEqualTo(6);
         assertThat(item.canReserve(6)).isTrue();
@@ -20,7 +22,8 @@ class StockItemEntityTest {
     }
 
     @Test
-    void reserveTakesExactlyWhatIsAvailableAndRefusesMore() {
+    void reserveTakesExactlyWhatIsAvailableAndRefusesMore()
+    {
         StockItemEntity item = new StockItemEntity("SKU-1001", 3, 0);
 
         assertThat(item.reserve(3)).isTrue();
@@ -35,7 +38,8 @@ class StockItemEntityTest {
     }
 
     @Test
-    void releaseGivesStockBackAndRefusesToReleaseMoreThanIsHeld() {
+    void releaseGivesStockBackAndRefusesToReleaseMoreThanIsHeld()
+    {
         StockItemEntity item = new StockItemEntity("SKU-1001", 5, 3);
 
         item.releaseReserved(2);
@@ -48,7 +52,8 @@ class StockItemEntityTest {
     }
 
     @Test
-    void commitRemovesStockFromBothReservedAndOnHand() {
+    void commitRemovesStockFromBothReservedAndOnHand()
+    {
         StockItemEntity item = new StockItemEntity("SKU-1001", 5, 2);
 
         item.commitReserved(2);
@@ -61,7 +66,8 @@ class StockItemEntityTest {
     }
 
     @Test
-    void commitRefusesMoreThanIsHeld() {
+    void commitRefusesMoreThanIsHeld()
+    {
         StockItemEntity item = new StockItemEntity("SKU-1001", 5, 1);
         assertThatThrownBy(() -> item.commitReserved(2))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -69,7 +75,8 @@ class StockItemEntityTest {
     }
 
     @Test
-    void constructorRejectsStateThatWouldAlreadyBeOversold() {
+    void constructorRejectsStateThatWouldAlreadyBeOversold()
+    {
         assertThatThrownBy(() -> new StockItemEntity("SKU-1001", 1, 2))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("reserved must not exceed onHand");
@@ -78,7 +85,8 @@ class StockItemEntityTest {
     }
 
     @Test
-    void zeroAndNegativeQuantitiesAreRejected() {
+    void zeroAndNegativeQuantitiesAreRejected()
+    {
         StockItemEntity item = new StockItemEntity("SKU-1001", 5, 0);
         assertThatThrownBy(() -> item.reserve(0)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> item.releaseReserved(-1)).isInstanceOf(IllegalArgumentException.class);

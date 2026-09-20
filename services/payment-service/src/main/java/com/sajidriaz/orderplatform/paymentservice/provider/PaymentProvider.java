@@ -19,7 +19,8 @@ import java.util.Optional;
  *       retrying blindly or guessing. This is the reconciliation path.</li>
  * </ul>
  */
-public interface PaymentProvider {
+public interface PaymentProvider
+{
 
     /**
      * Place a hold on funds.

@@ -7,9 +7,10 @@ import java.util.UUID;
  * {@code OrderAccepted} schema exactly: only {@code orderId} and the literal status
  * {@code PENDING}.
  */
-public record OrderAcceptedResponse(UUID orderId, String status) {
-
-    public static OrderAcceptedResponse pending(UUID orderId) {
+public record OrderAcceptedResponse(UUID orderId, String status)
+{
+    public static OrderAcceptedResponse pending(UUID orderId)
+    {
         return new OrderAcceptedResponse(orderId, "PENDING");
     }
 }

@@ -38,27 +38,31 @@ import static org.mockito.BDDMockito.given;
  * {@code TokenBucketRateLimiterTest} — this test is about the HTTP contract: 429 with
  * {@code Retry-After}, the {@code X-RateLimit-*} headers, and an RFC 9457 body.
  */
-@SpringBootTest(
+@SpringBootTest (
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
-                "order-platform.gateway.rate-limit.capacity=2",
-                "order-platform.gateway.rate-limit.refill-per-second=0.01"
+                       "order-platform.gateway.rate-limit.capacity=2",
+                       "order-platform.gateway.rate-limit.refill-per-second=0.01"
         })
-class GatewayRateLimitIT {
+class GatewayRateLimitIT
+{
 
     private static final String TOKEN = "token-with-both-order-scopes";
 
     private static StubDownstreamService orderService;
 
-    private static synchronized StubDownstreamService stub() {
-        if (orderService == null) {
+    private static synchronized StubDownstreamService stub()
+    {
+        if (orderService == null)
+        {
             orderService = StubDownstreamService.start();
         }
         return orderService;
     }
 
     @DynamicPropertySource
-    static void routes(DynamicPropertyRegistry registry) {
+    static void routes(DynamicPropertyRegistry registry)
+    {
         registry.add("order-platform.gateway.routes[0].id", () -> "orders");
         registry.add("order-platform.gateway.routes[0].path-prefix", () -> "/api/v1/orders");
         registry.add("order-platform.gateway.routes[0].uri", () -> stub().baseUrl());
@@ -73,15 +77,18 @@ class GatewayRateLimitIT {
     private RestTestClient client;
 
     @BeforeEach
-    void setUp() {
+    void setUp()
+    {
         RestTestClient.Builder<?> builder = RestTestClient.bindToServer();
         builder.baseUrl("http://localhost:" + port);
         client = builder.build();
         stub().reset();
         stub().respondWith(200, "{\"status\":\"PENDING\"}");
-        given(jwtDecoder.decode(anyString())).willAnswer(invocation -> {
+        given(jwtDecoder.decode(anyString())).willAnswer(invocation ->
+        {
             String token = invocation.getArgument(0);
-            if (TOKEN.equals(token)) {
+            if (TOKEN.equals(token))
+            {
                 return jwt(token);
             }
             throw new BadJwtException("Invalid token");
@@ -89,7 +96,8 @@ class GatewayRateLimitIT {
     }
 
     @Test
-    void exceedingTheBudget_returns429WithRetryAfterAndProblemJson() {
+    void exceedingTheBudget_returns429WithRetryAfterAndProblemJson()
+    {
         assertThat(getOrder().getStatus().value()).isEqualTo(HttpStatus.OK.value());
         assertThat(getOrder().getStatus().value()).isEqualTo(HttpStatus.OK.value());
 
@@ -112,14 +120,17 @@ class GatewayRateLimitIT {
         assertThat(stub().requestCount()).isEqualTo(2);
     }
 
-    private EntityExchangeResult<JsonNode> getOrder() {
-        return client.get().uri("/api/v1/orders/" + UUID.randomUUID())
+    private EntityExchangeResult<JsonNode> getOrder()
+    {
+        return client.get()
+                .uri("/api/v1/orders/" + UUID.randomUUID())
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + TOKEN)
                 .exchange()
                 .returnResult(JsonNode.class);
     }
 
-    private static Jwt jwt(String tokenValue) {
+    private static Jwt jwt(String tokenValue)
+    {
         return Jwt.withTokenValue(tokenValue)
                 .header("alg", "RS256")
                 .subject("3b3a382f-216b-4edf-8118-c93ac7db1a59")

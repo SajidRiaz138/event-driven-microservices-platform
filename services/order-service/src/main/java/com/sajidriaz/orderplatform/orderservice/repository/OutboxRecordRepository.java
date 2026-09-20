@@ -9,7 +9,8 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface OutboxRecordRepository extends JpaRepository<OutboxRecordEntity, java.util.UUID> {
+public interface OutboxRecordRepository extends JpaRepository<OutboxRecordEntity, java.util.UUID>
+{
 
     /**
      * Selects a batch of PENDING outbox rows for publishing, locking them so
@@ -17,12 +18,12 @@ public interface OutboxRecordRepository extends JpaRepository<OutboxRecordEntity
      * row (ADR-0004). {@code SKIP LOCKED} means a row already claimed by another
      * replica is simply skipped rather than blocking this poll.
      */
-    @Query(value = """
+    @Query (value = """
             select * from outbox
             where status = 'PENDING'
             order by created_at
             limit :batchSize
             for update skip locked
             """, nativeQuery = true)
-    List<OutboxRecordEntity> lockNextBatch(@Param("batchSize") int batchSize);
+    List<OutboxRecordEntity> lockNextBatch(@Param ("batchSize") int batchSize);
 }

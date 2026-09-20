@@ -13,15 +13,16 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface SagaInstanceRepository extends JpaRepository<SagaInstanceEntity, UUID> {
+public interface SagaInstanceRepository extends JpaRepository<SagaInstanceEntity, UUID>
+{
 
     /**
      * Pessimistic write lock while a reply event is being applied — prevents two
      * concurrently-processed replies for the same order from racing on the saga
      * state machine (belt-and-suspenders alongside optimistic locking).
      */
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select s from SagaInstanceEntity s where s.orderId = :orderId")
+    @Lock (LockModeType.PESSIMISTIC_WRITE)
+    @Query ("select s from SagaInstanceEntity s where s.orderId = :orderId")
     Optional<SagaInstanceEntity> findByIdForUpdate(UUID orderId);
 
     /**
@@ -35,7 +36,7 @@ public interface SagaInstanceRepository extends JpaRepository<SagaInstanceEntity
      * every terminal transition — belt and braces, since a swept-and-cancelled saga must
      * never be reconsidered.
      */
-    @Query(value = """
+    @Query (value = """
             select * from saga_instance
             where deadline is not null
               and deadline < :now

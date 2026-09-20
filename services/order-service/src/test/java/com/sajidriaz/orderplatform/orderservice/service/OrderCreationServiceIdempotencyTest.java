@@ -30,8 +30,9 @@ import static org.mockito.Mockito.when;
  * Unit tests for edge (HTTP) idempotency conflict logic (ADR-0005 layer 1, S-5, S-18).
  * Pure Mockito — no Spring context, no DB.
  */
-@ExtendWith(MockitoExtension.class)
-class OrderCreationServiceIdempotencyTest {
+@ExtendWith (MockitoExtension.class)
+class OrderCreationServiceIdempotencyTest
+{
 
     @Mock
     private OrderRepository orderRepository;
@@ -58,13 +59,15 @@ class OrderCreationServiceIdempotencyTest {
     private static final String KEY = "11111111-1111-1111-1111-111111111111";
 
     @BeforeEach
-    void setUp() {
+    void setUp()
+    {
         service = new OrderCreationService(orderRepository, sagaInstanceRepository, idempotencyKeyRepository,
                 priceCatalog, outboxWriter, requestHasher, orderEventFactory, sagaOrchestrator);
     }
 
     @Test
-    void sameKeySameHash_replaysOriginalResponse_withoutCreatingNewOrder() {
+    void sameKeySameHash_replaysOriginalResponse_withoutCreatingNewOrder()
+    {
         IdempotencyKeyEntity existing = new IdempotencyKeyEntity(
                 KEY, CUSTOMER_ID, METHOD, PATH, "hash-1", 202,
                 "{\"orderId\":\"x\",\"status\":\"PENDING\"}", java.util.UUID.randomUUID());
@@ -84,7 +87,8 @@ class OrderCreationServiceIdempotencyTest {
     }
 
     @Test
-    void sameKeyDifferentHash_throwsConflict_withoutCreatingNewOrder() {
+    void sameKeyDifferentHash_throwsConflict_withoutCreatingNewOrder()
+    {
         IdempotencyKeyEntity existing = new IdempotencyKeyEntity(
                 KEY, CUSTOMER_ID, METHOD, PATH, "hash-1", 202,
                 "{\"orderId\":\"x\",\"status\":\"PENDING\"}", java.util.UUID.randomUUID());

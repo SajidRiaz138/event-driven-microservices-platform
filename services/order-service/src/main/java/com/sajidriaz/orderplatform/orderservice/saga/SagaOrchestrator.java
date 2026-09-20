@@ -44,7 +44,8 @@ import java.util.UUID;
  * an already-terminal saga (S-11).
  */
 @Service
-public class SagaOrchestrator {
+public class SagaOrchestrator
+{
 
     private static final Logger log = LoggerFactory.getLogger(SagaOrchestrator.class);
 
@@ -55,10 +56,11 @@ public class SagaOrchestrator {
     private final SagaTimeouts timeouts;
 
     public SagaOrchestrator(OrderRepository orderRepository,
-                             SagaInstanceRepository sagaInstanceRepository,
-                             OutboxWriter outboxWriter,
-                             OrderEventFactory orderEventFactory,
-                             SagaTimeouts timeouts) {
+                            SagaInstanceRepository sagaInstanceRepository,
+                            OutboxWriter outboxWriter,
+                            OrderEventFactory orderEventFactory,
+                            SagaTimeouts timeouts)
+    {
         this.orderRepository = orderRepository;
         this.sagaInstanceRepository = sagaInstanceRepository;
         this.outboxWriter = outboxWriter;
@@ -80,9 +82,11 @@ public class SagaOrchestrator {
      * same transaction that creates the order and its {@code OrderCreated} outbox row.
      */
     @Transactional
-    public void issueReserveStock(OrderEntity order, UUID correlationId) {
+    public void issueReserveStock(OrderEntity order, UUID correlationId)
+    {
         UUID reservationId = UUID.randomUUID();
-        List<ReserveLine> lines = order.getLines().stream()
+        List<ReserveLine> lines = order.getLines()
+                .stream()
                 .map(l -> ReserveLine.newBuilder().setSku(l.getSku()).setQuantity(l.getQuantity()).build())
                 .toList();
 
@@ -107,13 +111,16 @@ public class SagaOrchestrator {
     // ---------------------------------------------------------------------
 
     @Transactional
-    public void onStockReserved(UUID orderId, UUID causationId) {
+    public void onStockReserved(UUID orderId, UUID causationId)
+    {
         SagaInstanceEntity saga = requireSagaForUpdate(orderId);
-        if (saga.getStatus().isTerminal()) {
+        if (saga.getStatus().isTerminal())
+        {
             log.info("Ignoring late StockReserved for terminal order {}", orderId);
             return;
         }
-        if (saga.getStatus() != SagaStatus.PENDING) {
+        if (saga.getStatus() != SagaStatus.PENDING)
+        {
             log.info("Ignoring StockReserved for order {} in unexpected state {}", orderId, saga.getStatus());
             return;
         }
@@ -146,13 +153,16 @@ public class SagaOrchestrator {
     }
 
     @Transactional
-    public void onStockReservationFailed(UUID orderId, UUID causationId) {
+    public void onStockReservationFailed(UUID orderId, UUID causationId)
+    {
         SagaInstanceEntity saga = requireSagaForUpdate(orderId);
-        if (saga.getStatus().isTerminal()) {
+        if (saga.getStatus().isTerminal())
+        {
             log.info("Ignoring late StockReservationFailed for terminal order {}", orderId);
             return;
         }
-        if (saga.getStatus() != SagaStatus.PENDING) {
+        if (saga.getStatus() != SagaStatus.PENDING)
+        {
             log.info("Ignoring StockReservationFailed for order {} in unexpected state {}", orderId, saga.getStatus());
             return;
         }
@@ -165,13 +175,16 @@ public class SagaOrchestrator {
     // ---------------------------------------------------------------------
 
     @Transactional
-    public void onPaymentAuthorized(UUID orderId, UUID causationId) {
+    public void onPaymentAuthorized(UUID orderId, UUID causationId)
+    {
         SagaInstanceEntity saga = requireSagaForUpdate(orderId);
-        if (saga.getStatus().isTerminal()) {
+        if (saga.getStatus().isTerminal())
+        {
             log.info("Ignoring late PaymentAuthorized for terminal order {}", orderId);
             return;
         }
-        if (saga.getStatus() != SagaStatus.STOCK_RESERVED) {
+        if (saga.getStatus() != SagaStatus.STOCK_RESERVED)
+        {
             log.info("Ignoring PaymentAuthorized for order {} in unexpected state {}", orderId, saga.getStatus());
             return;
         }
@@ -193,13 +206,16 @@ public class SagaOrchestrator {
     }
 
     @Transactional
-    public void onPaymentDeclined(UUID orderId, UUID causationId) {
+    public void onPaymentDeclined(UUID orderId, UUID causationId)
+    {
         SagaInstanceEntity saga = requireSagaForUpdate(orderId);
-        if (saga.getStatus().isTerminal()) {
+        if (saga.getStatus().isTerminal())
+        {
             log.info("Ignoring late PaymentDeclined for terminal order {}", orderId);
             return;
         }
-        if (saga.getStatus() != SagaStatus.STOCK_RESERVED && saga.getStatus() != SagaStatus.PAYMENT_AUTHORIZED) {
+        if (saga.getStatus() != SagaStatus.STOCK_RESERVED && saga.getStatus() != SagaStatus.PAYMENT_AUTHORIZED)
+        {
             log.info("Ignoring PaymentDeclined for order {} in unexpected state {}", orderId, saga.getStatus());
             return;
         }
@@ -212,13 +228,16 @@ public class SagaOrchestrator {
     // ---------------------------------------------------------------------
 
     @Transactional
-    public void onPaymentCaptured(UUID orderId, UUID causationId) {
+    public void onPaymentCaptured(UUID orderId, UUID causationId)
+    {
         SagaInstanceEntity saga = requireSagaForUpdate(orderId);
-        if (saga.getStatus().isTerminal()) {
+        if (saga.getStatus().isTerminal())
+        {
             log.info("Ignoring late PaymentCaptured for terminal order {}", orderId);
             return;
         }
-        if (saga.getStatus() != SagaStatus.PAYMENT_AUTHORIZED) {
+        if (saga.getStatus() != SagaStatus.PAYMENT_AUTHORIZED)
+        {
             log.info("Ignoring PaymentCaptured for order {} in unexpected state {}", orderId, saga.getStatus());
             return;
         }
@@ -239,13 +258,16 @@ public class SagaOrchestrator {
     }
 
     @Transactional
-    public void onPaymentCaptureFailed(UUID orderId, UUID causationId) {
+    public void onPaymentCaptureFailed(UUID orderId, UUID causationId)
+    {
         SagaInstanceEntity saga = requireSagaForUpdate(orderId);
-        if (saga.getStatus().isTerminal()) {
+        if (saga.getStatus().isTerminal())
+        {
             log.info("Ignoring late PaymentCaptureFailed for terminal order {}", orderId);
             return;
         }
-        if (saga.getStatus() != SagaStatus.PAYMENT_AUTHORIZED) {
+        if (saga.getStatus() != SagaStatus.PAYMENT_AUTHORIZED)
+        {
             log.info("Ignoring PaymentCaptureFailed for order {} in unexpected state {}", orderId, saga.getStatus());
             return;
         }
@@ -272,9 +294,11 @@ public class SagaOrchestrator {
      * no-op.
      */
     @Transactional
-    public void onStockReleased(UUID orderId, UUID causationId) {
+    public void onStockReleased(UUID orderId, UUID causationId)
+    {
         SagaInstanceEntity saga = requireSagaForUpdate(orderId);
-        if (!SagaStep.AWAITING_STOCK_RELEASE.name().equals(saga.getCurrentStep())) {
+        if (!SagaStep.AWAITING_STOCK_RELEASE.name().equals(saga.getCurrentStep()))
+        {
             log.info("Ignoring StockReleased (causation {}) for order {}: not awaiting release (step={})",
                     causationId, orderId, saga.getCurrentStep());
             return;
@@ -312,14 +336,17 @@ public class SagaOrchestrator {
      * on every sweep.
      */
     @Transactional
-    public void onStepTimeout(UUID orderId) {
+    public void onStepTimeout(UUID orderId)
+    {
         SagaInstanceEntity saga = requireSagaForUpdate(orderId);
-        if (saga.getStatus().isTerminal()) {
+        if (saga.getStatus().isTerminal())
+        {
             saga.setDeadline(null);
             return;
         }
         Instant deadline = saga.getDeadline();
-        if (deadline == null || deadline.isAfter(Instant.now())) {
+        if (deadline == null || deadline.isAfter(Instant.now()))
+        {
             // Re-checked under the row lock: another replica may have advanced the saga
             // between the sweeper's SELECT and this transition.
             return;
@@ -328,22 +355,28 @@ public class SagaOrchestrator {
         saga.incrementAttemptCount();
         String step = saga.getCurrentStep();
 
-        if (SagaStep.AWAITING_PAYMENT_CAPTURE.name().equals(step)) {
+        if (SagaStep.AWAITING_PAYMENT_CAPTURE.name().equals(step))
+        {
             saga.setDeadline(null);
             log.error("Capture-step timeout for order {} after {} attempt(s): the payment outcome is UNKNOWN, "
-                            + "so the saga is left non-terminal rather than confirmed or cancelled (ADR-0003). "
-                            + "Full REQUIRES_RECONCILIATION handling is deferred to payment-service (ADR-0016).",
+                    + "so the saga is left non-terminal rather than confirmed or cancelled (ADR-0003). "
+                    + "Full REQUIRES_RECONCILIATION handling is deferred to payment-service (ADR-0016).",
                     orderId, saga.getAttemptCount());
             return;
         }
 
-        if (SagaStep.AWAITING_STOCK_RESERVATION.name().equals(step)) {
+        if (SagaStep.AWAITING_STOCK_RESERVATION.name().equals(step))
+        {
             log.warn("Timeout awaiting stock reservation for order {}; cancelling (nothing to release)", orderId);
             cancelOrder(orderId, saga, CancellationReason.ORDER_TIMEOUT, null, false);
-        } else if (SagaStep.AWAITING_PAYMENT_AUTHORIZATION.name().equals(step)) {
+        }
+        else if (SagaStep.AWAITING_PAYMENT_AUTHORIZATION.name().equals(step))
+        {
             log.warn("Timeout awaiting payment authorization for order {}; releasing stock and cancelling", orderId);
             cancelOrder(orderId, saga, CancellationReason.ORDER_TIMEOUT, null, true);
-        } else {
+        }
+        else
+        {
             log.warn("Deadline passed for order {} at step {}; no timeout policy applies", orderId, step);
             saga.setDeadline(null);
         }
@@ -354,11 +387,16 @@ public class SagaOrchestrator {
     // ---------------------------------------------------------------------
 
     /** After compensation (ReleaseStock) completes, or immediately if nothing to release. */
-    private void cancelOrder(UUID orderId, SagaInstanceEntity saga, CancellationReason reason,
-                              UUID causationId, boolean releaseStock) {
+    private void cancelOrder(UUID orderId,
+                             SagaInstanceEntity saga,
+                             CancellationReason reason,
+                             UUID causationId,
+                             boolean releaseStock)
+    {
         saga.setStatus(SagaStatus.COMPENSATING);
 
-        if (releaseStock) {
+        if (releaseStock)
+        {
             ReleaseStock command = ReleaseStock.newBuilder()
                     .setOrderId(orderId)
                     .setReservationId(saga.getReservationId())
@@ -366,7 +404,9 @@ public class SagaOrchestrator {
             outboxWriter.append(MessageKind.COMMAND, "commands.inventory.release",
                     Topics.COMMANDS_INVENTORY_RELEASE, saga.getCorrelationId(), causationId, orderId, command);
             saga.setCurrentStep(SagaStep.AWAITING_STOCK_RELEASE);
-        } else {
+        }
+        else
+        {
             saga.setCurrentStep(SagaStep.DONE);
         }
         saga.setDeadline(null);
@@ -389,32 +429,40 @@ public class SagaOrchestrator {
     // Helpers
     // ---------------------------------------------------------------------
 
-    private SagaInstanceEntity requireSaga(UUID orderId) {
+    private SagaInstanceEntity requireSaga(UUID orderId)
+    {
         return sagaInstanceRepository.findById(orderId)
                 .orElseThrow(() -> new NoSuchElementException("No saga_instance for order " + orderId));
     }
 
-    private SagaInstanceEntity requireSagaForUpdate(UUID orderId) {
+    private SagaInstanceEntity requireSagaForUpdate(UUID orderId)
+    {
         return sagaInstanceRepository.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new NoSuchElementException("No saga_instance for order " + orderId));
     }
 
-    private OrderEntity requireOrder(UUID orderId) {
+    private OrderEntity requireOrder(UUID orderId)
+    {
         return orderRepository.findById(orderId)
                 .orElseThrow(() -> new NoSuchElementException("No order " + orderId));
     }
 
-    private Money toAvroMoney(OrderEntity order) {
+    private Money toAvroMoney(OrderEntity order)
+    {
         return Money.newBuilder()
                 .setMinorUnits(order.getTotalMinorUnits())
                 .setCurrency(order.getCurrency())
                 .build();
     }
 
-    private UUID toUuidOrDerived(String customerId) {
-        try {
+    private UUID toUuidOrDerived(String customerId)
+    {
+        try
+        {
             return UUID.fromString(customerId);
-        } catch (IllegalArgumentException e) {
+        }
+        catch (IllegalArgumentException e)
+        {
             return UUID.nameUUIDFromBytes(customerId.getBytes());
         }
     }

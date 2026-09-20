@@ -5,7 +5,8 @@ package com.sajidriaz.orderplatform.orderservice.entity;
  * JPA-persisted value so order-service can store it without a hard dependency on the
  * generated Avro class in the entity layer.
  */
-public enum CancellationReason {
+public enum CancellationReason
+{
     INSUFFICIENT_STOCK,
     PAYMENT_DECLINED,
     PAYMENT_CAPTURE_FAILED,

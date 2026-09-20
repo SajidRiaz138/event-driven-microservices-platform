@@ -19,38 +19,44 @@ import java.util.UUID;
  * identifier that holds across the flow.
  */
 @Entity
-@Table(name = "payment_intent", schema = "payment")
-public class PaymentIntentEntity {
+@Table (name = "payment_intent", schema = "payment")
+public class PaymentIntentEntity
+{
 
     @Id
-    @Column(name = "id", nullable = false)
+    @Column (name = "id", nullable = false)
     private UUID id;
 
-    @Column(name = "order_id", nullable = false, unique = true)
+    @Column (name = "order_id", nullable = false, unique = true)
     private UUID orderId;
 
-    @Column(name = "customer_id", nullable = false)
+    @Column (name = "customer_id", nullable = false)
     private UUID customerId;
 
-    @Column(name = "amount_minor_units", nullable = false)
+    @Column (name = "amount_minor_units", nullable = false)
     private long amountMinorUnits;
 
-    @Column(name = "currency", nullable = false, length = 3)
+    @Column (name = "currency", nullable = false, length = 3)
     private String currency;
 
     /** Opaque provider token. Never a PAN or any card data (ADR-0009, ADR-0016 §4). */
-    @Column(name = "payment_method_token", nullable = false, length = 255)
+    @Column (name = "payment_method_token", nullable = false, length = 255)
     private String paymentMethodToken;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column (name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    protected PaymentIntentEntity() {
+    protected PaymentIntentEntity()
+    {
         // JPA
     }
 
-    public PaymentIntentEntity(UUID id, UUID orderId, UUID customerId, Money amount,
-                               String paymentMethodToken) {
+    public PaymentIntentEntity(UUID id,
+                               UUID orderId,
+                               UUID customerId,
+                               Money amount,
+                               String paymentMethodToken)
+    {
         this.id = id;
         this.orderId = orderId;
         this.customerId = customerId;
@@ -60,27 +66,33 @@ public class PaymentIntentEntity {
         this.createdAt = Instant.now();
     }
 
-    public UUID getId() {
+    public UUID getId()
+    {
         return id;
     }
 
-    public UUID getOrderId() {
+    public UUID getOrderId()
+    {
         return orderId;
     }
 
-    public UUID getCustomerId() {
+    public UUID getCustomerId()
+    {
         return customerId;
     }
 
-    public Money getAmount() {
+    public Money getAmount()
+    {
         return Money.of(amountMinorUnits, currency);
     }
 
-    public String getPaymentMethodToken() {
+    public String getPaymentMethodToken()
+    {
         return paymentMethodToken;
     }
 
-    public Instant getCreatedAt() {
+    public Instant getCreatedAt()
+    {
         return createdAt;
     }
 }

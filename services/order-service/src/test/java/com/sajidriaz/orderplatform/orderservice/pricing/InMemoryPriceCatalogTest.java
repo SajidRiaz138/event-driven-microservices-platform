@@ -11,28 +11,33 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Unit tests for server-side price resolution and Money arithmetic (no client-supplied
  * prices are ever trusted — REST-API-GUIDE §1 "Pricing").
  */
-class InMemoryPriceCatalogTest {
+class InMemoryPriceCatalogTest
+{
 
     private final PriceCatalog catalog = new InMemoryPriceCatalog();
 
     @Test
-    void resolvesKnownSkuInUsd() {
+    void resolvesKnownSkuInUsd()
+    {
         Optional<Money> price = catalog.unitPriceFor("SKU-1001", "USD");
         assertThat(price).contains(new Money(1999, "USD"));
     }
 
     @Test
-    void unknownSkuIsEmpty() {
+    void unknownSkuIsEmpty()
+    {
         assertThat(catalog.unitPriceFor("SKU-DOES-NOT-EXIST", "USD")).isEmpty();
     }
 
     @Test
-    void unsupportedCurrencyIsEmpty() {
+    void unsupportedCurrencyIsEmpty()
+    {
         assertThat(catalog.unitPriceFor("SKU-1001", "EUR")).isEmpty();
     }
 
     @Test
-    void lineTotalIsUnitPriceTimesQuantity() {
+    void lineTotalIsUnitPriceTimesQuantity()
+    {
         Money unitPrice = catalog.unitPriceFor("SKU-1001", "USD").orElseThrow();
         Money lineTotal = unitPrice.times(3);
         assertThat(lineTotal.minorUnits()).isEqualTo(1999L * 3);
@@ -40,7 +45,8 @@ class InMemoryPriceCatalogTest {
     }
 
     @Test
-    void totalIsSumOfLineTotalsWithinSameCurrency() {
+    void totalIsSumOfLineTotalsWithinSameCurrency()
+    {
         Money line1 = catalog.unitPriceFor("SKU-1001", "USD").orElseThrow().times(2);
         Money line2 = catalog.unitPriceFor("SKU-1002", "USD").orElseThrow().times(1);
         Money total = line1.plus(line2);
@@ -48,7 +54,8 @@ class InMemoryPriceCatalogTest {
     }
 
     @Test
-    void moneyRejectsCrossCurrencyArithmetic() {
+    void moneyRejectsCrossCurrencyArithmetic()
+    {
         Money usd = new Money(100, "USD");
         Money eur = new Money(100, "EUR");
         assertThat(org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> usd.plus(eur)))

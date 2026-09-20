@@ -15,7 +15,8 @@ import java.util.Optional;
  * server-issued {@code quoteId}, per the OpenAPI contract) would replace this without
  * changing the {@link PriceCatalog} contract.
  */
-public interface PriceCatalog {
+public interface PriceCatalog
+{
 
     /**
      * Resolve the current unit price for a SKU in the given currency.

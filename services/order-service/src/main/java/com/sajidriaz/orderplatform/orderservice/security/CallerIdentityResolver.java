@@ -26,15 +26,18 @@ import org.springframework.stereotype.Component;
  * attributed to a caller nobody identified.
  */
 @Component
-public class CallerIdentityResolver {
+public class CallerIdentityResolver
+{
 
     /**
      * @return the caller's customer id (the token's {@code sub} claim), or {@code null} if the
      *         request carries no validated JWT.
      */
-    public String resolve() {
+    public String resolve()
+    {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication instanceof JwtAuthenticationToken jwtAuthentication) {
+        if (authentication instanceof JwtAuthenticationToken jwtAuthentication)
+        {
             String subject = jwtAuthentication.getToken().getSubject();
             return (subject == null || subject.isBlank()) ? null : subject;
         }

@@ -42,7 +42,8 @@ import java.util.concurrent.Executors;
  * <p>The JWKS server binds to an ephemeral loopback port and is shared by every test class in
  * the module, started once on first use.
  */
-public final class TestJwtIssuer {
+public final class TestJwtIssuer
+{
 
     /** Issuer the tests configure the service to trust. Not a reachable URL, and need not be. */
     public static final String ISSUER = "https://test-issuer.local/realms/order-platform";
@@ -64,47 +65,60 @@ public final class TestJwtIssuer {
     private static HttpServer jwkSetServer;
     private static String jwkSetUri;
 
-    private TestJwtIssuer() {
+    private TestJwtIssuer()
+    {
     }
 
     /** JWKS endpoint to point {@code spring.security.oauth2.resourceserver.jwt.jwk-set-uri} at. */
-    public static synchronized String jwkSetUri() {
-        if (jwkSetServer == null) {
+    public static synchronized String jwkSetUri()
+    {
+        if (jwkSetServer == null)
+        {
             startJwkSetServer();
         }
         return jwkSetUri;
     }
 
     /** A valid customer token: correct issuer, audience and signature, with both order scopes. */
-    public static String tokenFor(String subject) {
+    public static String tokenFor(String subject)
+    {
         return token(subject, CUSTOMER_SCOPES, AUDIENCE, Instant.now().plus(5, ChronoUnit.MINUTES), SIGNING_KEY);
     }
 
     /** A valid token carrying only the scopes given — for asserting insufficient-scope 403s. */
-    public static String tokenWithScopes(String subject, String... scopes) {
+    public static String tokenWithScopes(String subject, String... scopes)
+    {
         return token(subject, List.of(scopes), AUDIENCE, Instant.now().plus(5, ChronoUnit.MINUTES), SIGNING_KEY);
     }
 
     /** Correctly signed, but expired. */
-    public static String expiredTokenFor(String subject) {
+    public static String expiredTokenFor(String subject)
+    {
         return token(subject, CUSTOMER_SCOPES, AUDIENCE, Instant.now().minus(1, ChronoUnit.MINUTES), SIGNING_KEY);
     }
 
     /** Correctly signed and current, but minted for a different relying party. */
-    public static String tokenForForeignAudience(String subject) {
+    public static String tokenForForeignAudience(String subject)
+    {
         return token(subject, CUSTOMER_SCOPES, "some-other-system",
                 Instant.now().plus(5, ChronoUnit.MINUTES), SIGNING_KEY);
     }
 
     /** Well-formed and unexpired, but signed by a key that is not in the published JWKS. */
-    public static String tokenSignedByUntrustedKey(String subject) {
+    public static String tokenSignedByUntrustedKey(String subject)
+    {
         return token(subject, CUSTOMER_SCOPES, AUDIENCE,
                 Instant.now().plus(5, ChronoUnit.MINUTES), UNTRUSTED_KEY);
     }
 
-    private static String token(String subject, List<String> scopes, String audience,
-                                Instant expiresAt, RSAKey signingKey) {
-        try {
+    private static String token(String subject,
+                                List<String> scopes,
+                                String audience,
+                                Instant expiresAt,
+                                RSAKey signingKey)
+    {
+        try
+        {
             JWTClaimsSet claims = new JWTClaimsSet.Builder()
                     .subject(subject)
                     .issuer(ISSUER)
@@ -124,24 +138,31 @@ public final class TestJwtIssuer {
                     claims);
             jwt.sign(new RSASSASigner(signingKey));
             return jwt.serialize();
-        } catch (Exception e) {
+        }
+        catch (Exception e)
+        {
             throw new IllegalStateException("Could not mint a test token", e);
         }
     }
 
-    private static RSAKey generateKey(String keyId) {
-        try {
+    private static RSAKey generateKey(String keyId)
+    {
+        try
+        {
             return new RSAKeyGenerator(2048)
                     .keyID(keyId)
                     .keyUse(KeyUse.SIGNATURE)
                     .algorithm(JWSAlgorithm.RS256)
                     .generate();
-        } catch (Exception e) {
+        }
+        catch (Exception e)
+        {
             throw new IllegalStateException("Could not generate a test signing key", e);
         }
     }
 
-    private static void startJwkSetServer() {
+    private static void startJwkSetServer()
+    {
         // Only the public half of the signing key is published — the same contract Keycloak's
         // JWKS endpoint offers. The untrusted key is deliberately absent.
         byte[] jwkSet = new JWKSet(SIGNING_KEY.toPublicJWK())
@@ -152,37 +173,48 @@ public final class TestJwtIssuer {
         // JVM alive after the suite finishes — which surfaces as Surefire/Failsafe reporting
         // that it had to kill the fork 30 seconds after System.exit(0). A test fixture should
         // not be able to hold the build open.
-        Thread starter = new Thread(() -> {
-            try {
+        Thread starter = new Thread(() ->
+        {
+            try
+            {
                 HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-                server.setExecutor(Executors.newCachedThreadPool(runnable -> {
+                server.setExecutor(Executors.newCachedThreadPool(runnable ->
+                {
                     Thread worker = new Thread(runnable, "test-jwks");
                     worker.setDaemon(true);
                     return worker;
                 }));
-                server.createContext("/jwks.json", exchange -> {
+                server.createContext("/jwks.json", exchange ->
+                {
                     exchange.getResponseHeaders().add("Content-Type", "application/json");
                     exchange.sendResponseHeaders(200, jwkSet.length);
-                    try (OutputStream body = exchange.getResponseBody()) {
+                    try (OutputStream body = exchange.getResponseBody())
+                    {
                         body.write(jwkSet);
                     }
                 });
                 server.start();
                 jwkSetServer = server;
                 jwkSetUri = "http://127.0.0.1:" + server.getAddress().getPort() + "/jwks.json";
-            } catch (IOException e) {
+            }
+            catch (IOException e)
+            {
                 throw new IllegalStateException("Could not start the test JWKS endpoint", e);
             }
         }, "test-jwks-starter");
         starter.setDaemon(true);
         starter.start();
-        try {
+        try
+        {
             starter.join();
-        } catch (InterruptedException e) {
+        }
+        catch (InterruptedException e)
+        {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Interrupted while starting the test JWKS endpoint", e);
         }
-        if (jwkSetUri == null) {
+        if (jwkSetUri == null)
+        {
             throw new IllegalStateException("The test JWKS endpoint did not start");
         }
     }

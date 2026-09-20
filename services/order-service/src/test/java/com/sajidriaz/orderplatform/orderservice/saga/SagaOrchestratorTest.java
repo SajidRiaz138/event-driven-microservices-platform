@@ -34,8 +34,9 @@ import static org.mockito.Mockito.when;
  * surefire/failsafe split). Exercises: happy path, payment-declined compensation
  * (S-3), and idempotent duplicate reply handling (S-10, S-11).
  */
-@ExtendWith(MockitoExtension.class)
-class SagaOrchestratorTest {
+@ExtendWith (MockitoExtension.class)
+class SagaOrchestratorTest
+{
 
     private static final SagaTimeouts TEST_TIMEOUTS = new SagaTimeouts(900,
             Duration.ofSeconds(30), Duration.ofSeconds(30), Duration.ofSeconds(30));
@@ -54,7 +55,8 @@ class SagaOrchestratorTest {
     private SagaInstanceEntity saga;
 
     @BeforeEach
-    void setUp() {
+    void setUp()
+    {
         orchestrator = new SagaOrchestrator(orderRepository, sagaInstanceRepository, outboxWriter,
                 new OrderEventFactory(), TEST_TIMEOUTS);
 
@@ -73,7 +75,8 @@ class SagaOrchestratorTest {
     }
 
     @Test
-    void happyPath_reservedThenAuthorizedThenCaptured_confirmsOrder() {
+    void happyPath_reservedThenAuthorizedThenCaptured_confirmsOrder()
+    {
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
         when(sagaInstanceRepository.findByIdForUpdate(orderId)).thenReturn(Optional.of(saga));
 
@@ -94,7 +97,8 @@ class SagaOrchestratorTest {
     }
 
     @Test
-    void paymentDeclinedAfterStockReserved_releasesStockAndCancelsWithReason() {
+    void paymentDeclinedAfterStockReserved_releasesStockAndCancelsWithReason()
+    {
         saga.setStatus(SagaStatus.STOCK_RESERVED);
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
         when(sagaInstanceRepository.findByIdForUpdate(orderId)).thenReturn(Optional.of(saga));
@@ -112,7 +116,8 @@ class SagaOrchestratorTest {
     }
 
     @Test
-    void insufficientStock_cancelsWithoutReleasingStock() {
+    void insufficientStock_cancelsWithoutReleasingStock()
+    {
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
         when(sagaInstanceRepository.findByIdForUpdate(orderId)).thenReturn(Optional.of(saga));
 
@@ -128,7 +133,8 @@ class SagaOrchestratorTest {
     }
 
     @Test
-    void duplicateReplyAfterTerminal_isIgnored() {
+    void duplicateReplyAfterTerminal_isIgnored()
+    {
         saga.setStatus(SagaStatus.CONFIRMED);
         when(sagaInstanceRepository.findByIdForUpdate(orderId)).thenReturn(Optional.of(saga));
 
@@ -141,7 +147,8 @@ class SagaOrchestratorTest {
     }
 
     @Test
-    void duplicateReplyAfterCancelled_isIgnoredEvenIfPreviouslyStockReserved() {
+    void duplicateReplyAfterCancelled_isIgnoredEvenIfPreviouslyStockReserved()
+    {
         saga.setStatus(SagaStatus.CANCELLED);
         when(sagaInstanceRepository.findByIdForUpdate(orderId)).thenReturn(Optional.of(saga));
 
@@ -152,7 +159,8 @@ class SagaOrchestratorTest {
     }
 
     @Test
-    void captureFailedAfterAuthorized_compensatesAndCancels() {
+    void captureFailedAfterAuthorized_compensatesAndCancels()
+    {
         saga.setStatus(SagaStatus.PAYMENT_AUTHORIZED);
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
         when(sagaInstanceRepository.findByIdForUpdate(orderId)).thenReturn(Optional.of(saga));
@@ -168,7 +176,8 @@ class SagaOrchestratorTest {
     // ---------------------------------------------------------------------
 
     @Test
-    void stockReleased_closesCompensationAndReachesDone() {
+    void stockReleased_closesCompensationAndReachesDone()
+    {
         saga.setStatus(SagaStatus.CANCELLED);
         saga.setCurrentStep(SagaStep.AWAITING_STOCK_RELEASE);
         when(sagaInstanceRepository.findByIdForUpdate(orderId)).thenReturn(Optional.of(saga));
@@ -183,7 +192,8 @@ class SagaOrchestratorTest {
     }
 
     @Test
-    void stockReleased_isIgnoredWhenSagaWasNotAwaitingRelease() {
+    void stockReleased_isIgnoredWhenSagaWasNotAwaitingRelease()
+    {
         saga.setStatus(SagaStatus.CANCELLED);
         saga.setCurrentStep(SagaStep.DONE);
         when(sagaInstanceRepository.findByIdForUpdate(orderId)).thenReturn(Optional.of(saga));
@@ -201,7 +211,8 @@ class SagaOrchestratorTest {
     // ---------------------------------------------------------------------
 
     @Test
-    void timeoutAwaitingStockReservation_cancelsWithOrderTimeout_withoutReleasingStock() {
+    void timeoutAwaitingStockReservation_cancelsWithOrderTimeout_withoutReleasingStock()
+    {
         saga.setCurrentStep(SagaStep.AWAITING_STOCK_RESERVATION);
         saga.setDeadline(Instant.now().minusSeconds(1));
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
@@ -218,7 +229,8 @@ class SagaOrchestratorTest {
     }
 
     @Test
-    void timeoutAwaitingPaymentAuthorization_releasesStockAndCancelsWithOrderTimeout() {
+    void timeoutAwaitingPaymentAuthorization_releasesStockAndCancelsWithOrderTimeout()
+    {
         saga.setStatus(SagaStatus.STOCK_RESERVED);
         saga.setCurrentStep(SagaStep.AWAITING_PAYMENT_AUTHORIZATION);
         saga.setDeadline(Instant.now().minusSeconds(1));
@@ -240,7 +252,8 @@ class SagaOrchestratorTest {
      * cancel an order the provider actually charged, so the saga must stay non-terminal.
      */
     @Test
-    void timeoutAtCaptureStep_neverCancels_andLeavesSagaNonTerminal() {
+    void timeoutAtCaptureStep_neverCancels_andLeavesSagaNonTerminal()
+    {
         saga.setStatus(SagaStatus.PAYMENT_AUTHORIZED);
         saga.setCurrentStep(SagaStep.AWAITING_PAYMENT_CAPTURE);
         saga.setDeadline(Instant.now().minusSeconds(1));
@@ -260,7 +273,8 @@ class SagaOrchestratorTest {
     }
 
     @Test
-    void timeoutSweep_ignoresSagaWhoseDeadlineWasAlreadyAdvanced() {
+    void timeoutSweep_ignoresSagaWhoseDeadlineWasAlreadyAdvanced()
+    {
         // Another replica advanced the saga between the sweeper's SELECT and this call.
         saga.setStatus(SagaStatus.STOCK_RESERVED);
         saga.setCurrentStep(SagaStep.AWAITING_PAYMENT_AUTHORIZATION);
@@ -275,12 +289,16 @@ class SagaOrchestratorTest {
     }
 
     // Reflection helper: OrderEntity's id is JPA-generated and has no public setter.
-    private static void setOrderId(OrderEntity order, UUID id) {
-        try {
+    private static void setOrderId(OrderEntity order, UUID id)
+    {
+        try
+        {
             var field = OrderEntity.class.getDeclaredField("id");
             field.setAccessible(true);
             field.set(order, id);
-        } catch (ReflectiveOperationException e) {
+        }
+        catch (ReflectiveOperationException e)
+        {
             throw new RuntimeException(e);
         }
     }

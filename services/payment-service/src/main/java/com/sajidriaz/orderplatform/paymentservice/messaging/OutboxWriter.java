@@ -17,12 +17,14 @@ import java.util.UUID;
  * for a change that rolled back.
  */
 @Component
-public class OutboxWriter {
+public class OutboxWriter
+{
 
     private final OutboxRecordRepository outboxRecordRepository;
     private final EnvelopeCodec envelopeCodec;
 
-    public OutboxWriter(OutboxRecordRepository outboxRecordRepository, EnvelopeCodec envelopeCodec) {
+    public OutboxWriter(OutboxRecordRepository outboxRecordRepository, EnvelopeCodec envelopeCodec)
+    {
         this.outboxRecordRepository = outboxRecordRepository;
         this.envelopeCodec = envelopeCodec;
     }
@@ -40,8 +42,14 @@ public class OutboxWriter {
      * @param aggregateId   the order id — becomes the Kafka partition key and the only handle
      *                      the orchestrator has for correlating a reply to its saga
      */
-    public void append(MessageKind kind, String type, String topic, UUID correlationId, UUID causationId,
-                       UUID aggregateId, SpecificRecordBase payload) {
+    public void append(MessageKind kind,
+                       String type,
+                       String topic,
+                       UUID correlationId,
+                       UUID causationId,
+                       UUID aggregateId,
+                       SpecificRecordBase payload)
+    {
         byte[] envelopeBytes =
                 envelopeCodec.encodeEnvelope(kind, type, correlationId, causationId, aggregateId, payload);
         outboxRecordRepository.save(

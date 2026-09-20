@@ -15,17 +15,20 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-class EnvelopeCodecTest {
+class EnvelopeCodecTest
+{
 
     private final EnvelopeCodec codec = new EnvelopeCodec();
 
     @AfterEach
-    void clearContext() {
+    void clearContext()
+    {
         TraceparentContext.clear();
     }
 
     @Test
-    void envelopeAndPayloadRoundTrip() {
+    void envelopeAndPayloadRoundTrip()
+    {
         UUID orderId = UUID.randomUUID();
         UUID reservationId = UUID.randomUUID();
         UUID correlationId = UUID.randomUUID();
@@ -60,13 +63,15 @@ class EnvelopeCodecTest {
     }
 
     @Test
-    void traceparentIsAdoptedFromAmbientContextAndIsNullWhenAbsent() {
+    void traceparentIsAdoptedFromAmbientContextAndIsNullWhenAbsent()
+    {
         UUID orderId = UUID.randomUUID();
         StockReserved payload = stockReserved(orderId);
 
         assertNull(codec.decodeEnvelope(
                 codec.encodeEnvelope(MessageKind.EVENT, MessageTypes.EVENT_INVENTORY_RESERVED,
-                        UUID.randomUUID(), null, orderId, payload)).getTraceparent(),
+                        UUID.randomUUID(), null, orderId, payload))
+                .getTraceparent(),
                 "no inbound traceparent must stay null, never be fabricated");
 
         String traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
@@ -79,7 +84,8 @@ class EnvelopeCodecTest {
     }
 
     @Test
-    void messageIdIsFreshPerEncodeButCanBePinnedForResends() {
+    void messageIdIsFreshPerEncodeButCanBePinnedForResends()
+    {
         UUID orderId = UUID.randomUUID();
         StockReserved payload = stockReserved(orderId);
 
@@ -98,13 +104,15 @@ class EnvelopeCodecTest {
     }
 
     @Test
-    void malformedTraceparentYieldsNullTraceIdRatherThanThrowing() {
+    void malformedTraceparentYieldsNullTraceIdRatherThanThrowing()
+    {
         assertNull(TraceparentContext.traceIdOf(null));
         assertNull(TraceparentContext.traceIdOf("garbage"));
         assertNull(TraceparentContext.traceIdOf("00--spanid-01"));
     }
 
-    private StockReserved stockReserved(UUID orderId) {
+    private StockReserved stockReserved(UUID orderId)
+    {
         Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
         return StockReserved.newBuilder()
                 .setOrderId(orderId)

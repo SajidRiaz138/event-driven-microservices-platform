@@ -18,77 +18,90 @@ import java.util.UUID;
  * order time). Clients never send prices (REST-API-GUIDE §1 "Pricing").
  */
 @Entity
-@Table(name = "order_lines")
-public class OrderLineEntity {
+@Table (name = "order_lines")
+public class OrderLineEntity
+{
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+    @GeneratedValue (strategy = GenerationType.UUID)
     private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "order_id", nullable = false)
+    @ManyToOne (fetch = FetchType.LAZY)
+    @JoinColumn (name = "order_id", nullable = false)
     private OrderEntity order;
 
-    @Column(name = "sku", nullable = false, length = 64)
+    @Column (name = "sku", nullable = false, length = 64)
     private String sku;
 
-    @Column(name = "quantity", nullable = false)
+    @Column (name = "quantity", nullable = false)
     private int quantity;
 
-    @Column(name = "unit_price_minor_units", nullable = false)
+    @Column (name = "unit_price_minor_units", nullable = false)
     private long unitPriceMinorUnits;
 
-    @Column(name = "currency", nullable = false, length = 3)
+    @Column (name = "currency", nullable = false, length = 3)
     private String currency;
 
-    protected OrderLineEntity() {
+    protected OrderLineEntity()
+    {
         // JPA
     }
 
-    public OrderLineEntity(String sku, int quantity, Money unitPrice) {
+    public OrderLineEntity(String sku, int quantity, Money unitPrice)
+    {
         this.sku = sku;
         this.quantity = quantity;
         this.unitPriceMinorUnits = unitPrice.minorUnits();
         this.currency = unitPrice.currency();
     }
 
-    public UUID getId() {
+    public UUID getId()
+    {
         return id;
     }
 
-    public OrderEntity getOrder() {
+    public OrderEntity getOrder()
+    {
         return order;
     }
 
-    public void setOrder(OrderEntity order) {
+    public void setOrder(OrderEntity order)
+    {
         this.order = order;
     }
 
-    public String getSku() {
+    public String getSku()
+    {
         return sku;
     }
 
-    public int getQuantity() {
+    public int getQuantity()
+    {
         return quantity;
     }
 
-    public long getUnitPriceMinorUnits() {
+    public long getUnitPriceMinorUnits()
+    {
         return unitPriceMinorUnits;
     }
 
-    public String getCurrency() {
+    public String getCurrency()
+    {
         return currency;
     }
 
-    public Money unitPrice() {
+    public Money unitPrice()
+    {
         return new Money(unitPriceMinorUnits, currency);
     }
 
-    public long getLineTotalMinorUnits() {
+    public long getLineTotalMinorUnits()
+    {
         return unitPriceMinorUnits * quantity;
     }
 
-    public Money lineTotal() {
+    public Money lineTotal()
+    {
         return new Money(getLineTotalMinorUnits(), currency);
     }
 }

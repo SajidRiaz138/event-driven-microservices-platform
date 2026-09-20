@@ -27,59 +27,65 @@ import java.util.UUID;
  * collapses our repeated calls into one effect.
  */
 @Entity
-@Table(name = "payment_operation", schema = "payment")
-public class PaymentOperationEntity {
+@Table (name = "payment_operation", schema = "payment")
+public class PaymentOperationEntity
+{
 
     @Id
-    @Column(name = "id", nullable = false)
+    @Column (name = "id", nullable = false)
     private UUID id;
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "attempt_id", nullable = false)
+    @ManyToOne (fetch = FetchType.EAGER)
+    @JoinColumn (name = "attempt_id", nullable = false)
     private PaymentAttemptEntity attempt;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "operation_type", nullable = false, length = 16)
+    @Enumerated (EnumType.STRING)
+    @Column (name = "operation_type", nullable = false, length = 16)
     private OperationType operationType;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 16)
+    @Enumerated (EnumType.STRING)
+    @Column (name = "status", nullable = false, length = 16)
     private OperationStatus status;
 
-    @Column(name = "provider_idempotency_key", nullable = false, length = 255, updatable = false)
+    @Column (name = "provider_idempotency_key", nullable = false, length = 255, updatable = false)
     private String providerIdempotencyKey;
 
-    @Column(name = "provider_reference", length = 255)
+    @Column (name = "provider_reference", length = 255)
     private String providerReference;
 
-    @Column(name = "amount_minor_units", nullable = false)
+    @Column (name = "amount_minor_units", nullable = false)
     private long amountMinorUnits;
 
-    @Column(name = "currency", nullable = false, length = 3)
+    @Column (name = "currency", nullable = false, length = 3)
     private String currency;
 
-    @Column(name = "failure_reason", length = 255)
+    @Column (name = "failure_reason", length = 255)
     private String failureReason;
 
-    @Column(name = "reconcile_attempts", nullable = false)
+    @Column (name = "reconcile_attempts", nullable = false)
     private int reconcileAttempts;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column (name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    @Column(name = "updated_at", nullable = false)
+    @Column (name = "updated_at", nullable = false)
     private Instant updatedAt;
 
     @Version
-    @Column(name = "lock_version", nullable = false)
+    @Column (name = "lock_version", nullable = false)
     private long lockVersion;
 
-    protected PaymentOperationEntity() {
+    protected PaymentOperationEntity()
+    {
         // JPA
     }
 
-    public PaymentOperationEntity(UUID id, PaymentAttemptEntity attempt, OperationType operationType,
-                                  String providerIdempotencyKey, Money amount) {
+    public PaymentOperationEntity(UUID id,
+                                  PaymentAttemptEntity attempt,
+                                  OperationType operationType,
+                                  String providerIdempotencyKey,
+                                  Money amount)
+    {
         this.id = id;
         this.attempt = attempt;
         this.operationType = operationType;
@@ -93,51 +99,63 @@ public class PaymentOperationEntity {
         this.updatedAt = this.createdAt;
     }
 
-    public UUID getId() {
+    public UUID getId()
+    {
         return id;
     }
 
-    public PaymentAttemptEntity getAttempt() {
+    public PaymentAttemptEntity getAttempt()
+    {
         return attempt;
     }
 
-    public OperationType getOperationType() {
+    public OperationType getOperationType()
+    {
         return operationType;
     }
 
-    public OperationStatus getStatus() {
+    public OperationStatus getStatus()
+    {
         return status;
     }
 
-    public String getProviderIdempotencyKey() {
+    public String getProviderIdempotencyKey()
+    {
         return providerIdempotencyKey;
     }
 
-    public String getProviderReference() {
+    public String getProviderReference()
+    {
         return providerReference;
     }
 
-    public Money getAmount() {
+    public Money getAmount()
+    {
         return Money.of(amountMinorUnits, currency);
     }
 
-    public String getFailureReason() {
+    public String getFailureReason()
+    {
         return failureReason;
     }
 
-    public int getReconcileAttempts() {
+    public int getReconcileAttempts()
+    {
         return reconcileAttempts;
     }
 
-    public Instant getCreatedAt() {
+    public Instant getCreatedAt()
+    {
         return createdAt;
     }
 
-    public Instant getUpdatedAt() {
+    public Instant getUpdatedAt()
+    {
         return updatedAt;
     }
 
-    public long getLockVersion() {
+    public long getLockVersion()
+    {
         return lockVersion;
     }
 
@@ -146,16 +164,20 @@ public class PaymentOperationEntity {
      * that is SUCCEEDED must never silently become FAILED (or the reverse) on a later message,
      * because money has already moved and the earlier fact is the true one.
      */
-    public void resolve(OperationStatus resolution, String providerReference, String failureReason) {
-        if (!resolution.isResolved()) {
+    public void resolve(OperationStatus resolution, String providerReference, String failureReason)
+    {
+        if (!resolution.isResolved())
+        {
             throw new IllegalArgumentException(resolution + " is not a resolved outcome");
         }
-        if (this.status.isResolved() && this.status != resolution) {
+        if (this.status.isResolved() && this.status != resolution)
+        {
             throw new IllegalStateException("operation " + id + " is already " + this.status
                     + " and cannot become " + resolution);
         }
         this.status = resolution;
-        if (providerReference != null) {
+        if (providerReference != null)
+        {
             this.providerReference = providerReference;
         }
         this.failureReason = failureReason;
@@ -167,20 +189,24 @@ public class PaymentOperationEntity {
      * S-17). Refuses to overwrite an established outcome: once the truth is known, losing it to a
      * later ambiguous attempt would be a regression into ignorance.
      */
-    public void markUnknown(String providerReference) {
-        if (this.status.isResolved()) {
+    public void markUnknown(String providerReference)
+    {
+        if (this.status.isResolved())
+        {
             throw new IllegalStateException("operation " + id + " is already " + this.status
                     + " and must not regress to UNKNOWN");
         }
         this.status = OperationStatus.UNKNOWN;
-        if (providerReference != null) {
+        if (providerReference != null)
+        {
             this.providerReference = providerReference;
         }
         this.updatedAt = Instant.now();
     }
 
     /** Count a reconciliation query that still could not establish the outcome. */
-    public int recordReconcileAttempt() {
+    public int recordReconcileAttempt()
+    {
         this.updatedAt = Instant.now();
         return ++this.reconcileAttempts;
     }

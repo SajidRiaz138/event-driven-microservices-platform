@@ -27,12 +27,15 @@ import java.io.IOException;
  * behind it would advertise spans no backend ever recorded (ADR-0013).
  */
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE)
-public class CorrelationIdFilter extends OncePerRequestFilter {
+@Order (Ordered.HIGHEST_PRECEDENCE)
+public class CorrelationIdFilter extends OncePerRequestFilter
+{
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
-                                    FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain) throws ServletException, IOException
+    {
         String correlationId = CorrelationContext.adoptOrGenerate(
                 request.getHeader(CorrelationContext.HEADER_CORRELATION_ID));
         response.setHeader(CorrelationContext.HEADER_CORRELATION_ID, correlationId);
@@ -41,9 +44,12 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
         TraceparentContext.set(traceparent);
         CorrelationContext.setTraceId(TraceparentContext.traceIdOf(traceparent));
 
-        try {
+        try
+        {
             filterChain.doFilter(request, response);
-        } finally {
+        }
+        finally
+        {
             TraceparentContext.clear();
             CorrelationContext.clear();
         }

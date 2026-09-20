@@ -40,16 +40,18 @@ import org.springframework.security.web.SecurityFilterChain;
  */
 @Configuration
 @EnableWebSecurity
-public class SecurityConfig {
+public class SecurityConfig
+{
 
     private final String jwkSetUri;
     private final String issuerUri;
     private final String audience;
 
     public SecurityConfig(
-            @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}") String jwkSetUri,
-            @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUri,
-            @Value("${order-platform.security.jwt.audience}") String audience) {
+                          @Value ("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}") String jwkSetUri,
+                          @Value ("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUri,
+                          @Value ("${order-platform.security.jwt.audience}") String audience)
+    {
         this.jwkSetUri = jwkSetUri;
         this.issuerUri = issuerUri;
         this.audience = audience;
@@ -62,15 +64,17 @@ public class SecurityConfig {
      * being replayed here.
      */
     @Bean
-    public JwtDecoder jwtDecoder() {
+    public JwtDecoder jwtDecoder()
+    {
         return PlatformJwtDecoders.rs256(jwkSetUri, issuerUri, audience);
     }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
-                                                    JwtDecoder jwtDecoder,
-                                                    ProblemDetailAuthenticationEntryPoint authenticationEntryPoint,
-                                                    ProblemDetailAccessDeniedHandler accessDeniedHandler) throws Exception {
+                                                   JwtDecoder jwtDecoder,
+                                                   ProblemDetailAuthenticationEntryPoint authenticationEntryPoint,
+                                                   ProblemDetailAccessDeniedHandler accessDeniedHandler) throws Exception
+    {
         http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -79,13 +83,15 @@ public class SecurityConfig {
                         // holds no user token. Unchanged from before this service had a
                         // filter chain at all; hardening the actuator surface is a separate
                         // decision from authenticating the customer API.
-                        .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers("/actuator/**")
+                        .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/orders")
                         .hasAnyAuthority(PlatformScopes.AUTHORITY_ORDERS_WRITE,
                                 PlatformScopes.AUTHORITY_ORDERS_WRITE_ANY)
                         .requestMatchers(HttpMethod.GET, "/api/v1/orders/**")
                         .hasAuthority(PlatformScopes.AUTHORITY_ORDERS_READ)
-                        .anyRequest().authenticated())
+                        .anyRequest()
+                        .authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler)

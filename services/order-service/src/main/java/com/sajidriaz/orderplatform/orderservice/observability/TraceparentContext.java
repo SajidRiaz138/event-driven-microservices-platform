@@ -19,25 +19,30 @@ package com.sajidriaz.orderplatform.orderservice.observability;
  * permits. Generating trace context at the edge belongs with the gateway plus a real
  * tracing stack (ADR-0013).
  */
-public final class TraceparentContext {
+public final class TraceparentContext
+{
 
     /** W3C Trace Context header name (lower-case per the specification). */
     public static final String HEADER_TRACEPARENT = "traceparent";
 
     private static final ThreadLocal<String> CURRENT = new ThreadLocal<>();
 
-    private TraceparentContext() {
+    private TraceparentContext()
+    {
     }
 
     /** Adopt the inbound traceparent, if the caller supplied a non-blank one. */
-    public static void set(String traceparent) {
-        if (traceparent != null && !traceparent.isBlank()) {
+    public static void set(String traceparent)
+    {
+        if (traceparent != null && !traceparent.isBlank())
+        {
             CURRENT.set(traceparent);
         }
     }
 
     /** The current traceparent, or {@code null} when the caller supplied none. */
-    public static String current() {
+    public static String current()
+    {
         return CURRENT.get();
     }
 
@@ -47,8 +52,10 @@ public final class TraceparentContext {
      * the value is absent or not in the expected shape — a malformed header from a caller
      * must never break request handling.
      */
-    public static String traceIdOf(String traceparent) {
-        if (traceparent == null) {
+    public static String traceIdOf(String traceparent)
+    {
+        if (traceparent == null)
+        {
             return null;
         }
         String[] parts = traceparent.split("-");
@@ -56,7 +63,8 @@ public final class TraceparentContext {
     }
 
     /** Clear the holder. Must run in a {@code finally} so threads are never reused dirty. */
-    public static void clear() {
+    public static void clear()
+    {
         CURRENT.remove();
     }
 }

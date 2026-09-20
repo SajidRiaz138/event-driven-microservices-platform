@@ -5,7 +5,8 @@ package com.sajidriaz.orderplatform.orderservice.messaging;
  * and {@code events.<owning-service>.<fact>.v<major>}. Centralised here so the
  * relay/orchestrator never hand-builds topic strings inline.
  */
-public final class Topics {
+public final class Topics
+{
 
     // Events owned by order-service
     public static final String EVENTS_ORDER_CREATED = "events.order.created.v1";
@@ -34,10 +35,12 @@ public final class Topics {
      * {@code <topic>.<group>.DLT} pattern — one DLQ per consumer group, so a poison
      * message quarantined by order-service never lands in another service's DLQ.
      */
-    public static String deadLetterTopicFor(String topic, String consumerGroup) {
+    public static String deadLetterTopicFor(String topic, String consumerGroup)
+    {
         return topic + "." + consumerGroup + ".DLT";
     }
 
-    private Topics() {
+    private Topics()
+    {
     }
 }

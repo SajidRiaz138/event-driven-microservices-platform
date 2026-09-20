@@ -6,7 +6,8 @@ package com.sajidriaz.orderplatform.orderservice.entity;
  * lifecycle status; {@code SagaStep} pins down exactly which reply event would
  * advance the saga next, for observability and timeout handling.
  */
-public enum SagaStep {
+public enum SagaStep
+{
     AWAITING_STOCK_RESERVATION,
     AWAITING_PAYMENT_AUTHORIZATION,
     AWAITING_PAYMENT_CAPTURE,

@@ -72,10 +72,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  * module that is not on this classpath. Like {@code TestRestTemplate} it does not throw on 4xx, so
  * status codes are asserted explicitly.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest (webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
-@EnabledIfEnvironmentVariable(named = "DOCKER_AVAILABLE", matches = "true")
-class InventoryReservationIT {
+@EnabledIfEnvironmentVariable (named = "DOCKER_AVAILABLE", matches = "true")
+class InventoryReservationIT
+{
 
     @Container
     static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:17.6")
@@ -87,7 +88,8 @@ class InventoryReservationIT {
     static KafkaContainer kafka = new KafkaContainer(DockerImageName.parse("apache/kafka:4.1.2"));
 
     @DynamicPropertySource
-    static void properties(DynamicPropertyRegistry registry) {
+    static void properties(DynamicPropertyRegistry registry)
+    {
         registry.add("spring.datasource.url", postgres::getJdbcUrl);
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
@@ -116,7 +118,8 @@ class InventoryReservationIT {
     private final EnvelopeCodec codec = new EnvelopeCodec();
 
     @BeforeAll
-    static void startKafkaClients() {
+    static void startKafkaClients()
+    {
         Properties producerProps = new Properties();
         producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers());
         producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
@@ -139,17 +142,21 @@ class InventoryReservationIT {
     }
 
     @AfterAll
-    static void stopKafkaClients() {
-        if (producer != null) {
+    static void stopKafkaClients()
+    {
+        if (producer != null)
+        {
             producer.close();
         }
-        if (verifier != null) {
+        if (verifier != null)
+        {
             verifier.close();
         }
     }
 
     @Test
-    void reserveStockCommand_reservesStockAndEmitsStockReserved() {
+    void reserveStockCommand_reservesStockAndEmitsStockReserved()
+    {
         String sku = givenStock(10);
         UUID orderId = UUID.randomUUID();
         UUID reservationId = UUID.randomUUID();
@@ -172,7 +179,8 @@ class InventoryReservationIT {
     }
 
     @Test
-    void reserveStockCommand_withInsufficientStock_emitsStockReservationFailedAndChangesNothing() {
+    void reserveStockCommand_withInsufficientStock_emitsStockReservationFailedAndChangesNothing()
+    {
         String sku = givenStock(1);
         UUID orderId = UUID.randomUUID();
 
@@ -190,7 +198,8 @@ class InventoryReservationIT {
     }
 
     @Test
-    void releaseStockCommand_returnsStockAndEmitsStockReleased() {
+    void releaseStockCommand_returnsStockAndEmitsStockReleased()
+    {
         String sku = givenStock(5);
         UUID orderId = UUID.randomUUID();
         UUID reservationId = UUID.randomUUID();
@@ -204,14 +213,16 @@ class InventoryReservationIT {
         publishReleaseStock(orderId, UUID.randomUUID());
 
         awaitEvent(orderId, MessageTypes.EVENT_INVENTORY_RELEASED);
-        Awaitility.await().atMost(Duration.ofSeconds(10))
+        Awaitility.await()
+                .atMost(Duration.ofSeconds(10))
                 .untilAsserted(() -> assertThat(reservedOf(sku)).isZero());
         assertThat(availableOf(sku)).isEqualTo(5);
         assertThat(statusOfReservation(reservationId)).isEqualTo("RELEASED");
     }
 
     @Test
-    void redeliveredReserveStockCommand_reservesStockOnlyOnce() {
+    void redeliveredReserveStockCommand_reservesStockOnlyOnce()
+    {
         String sku = givenStock(10);
         UUID orderId = UUID.randomUUID();
         UUID reservationId = UUID.randomUUID();
@@ -223,18 +234,22 @@ class InventoryReservationIT {
         publishRaw(PlatformTopics.COMMANDS_INVENTORY_RESERVE, orderId, command);
 
         awaitEvent(orderId, MessageTypes.EVENT_INVENTORY_RESERVED);
-        Awaitility.await().atMost(Duration.ofSeconds(10))
+        Awaitility.await()
+                .atMost(Duration.ofSeconds(10))
                 .untilAsserted(() -> assertThat(reservedOf(sku)).isEqualTo(4));
 
         // Give the second delivery time to be (not) applied, then confirm the dedup held.
-        Awaitility.await().during(Duration.ofSeconds(2)).atMost(Duration.ofSeconds(5))
+        Awaitility.await()
+                .during(Duration.ofSeconds(2))
+                .atMost(Duration.ofSeconds(5))
                 .untilAsserted(() -> assertThat(reservedOf(sku)).isEqualTo(4));
         assertThat(reservationCountFor(orderId)).isEqualTo(1);
         assertThat(processedMessageCount()).isPositive();
     }
 
     @Test
-    void orderConfirmedEvent_commitsTheReservationSoStockLeavesOnHand() {
+    void orderConfirmedEvent_commitsTheReservationSoStockLeavesOnHand()
+    {
         String sku = givenStock(6);
         UUID orderId = UUID.randomUUID();
         UUID reservationId = UUID.randomUUID();
@@ -246,7 +261,8 @@ class InventoryReservationIT {
 
         // Without this step a confirmed order's reservation would sit ACTIVE until its TTL fired
         // and the sweeper handed back stock that had already been sold.
-        Awaitility.await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
+        Awaitility.await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
+        {
             assertThat(statusOfReservation(reservationId)).isEqualTo("COMMITTED");
             assertThat(onHandOf(sku)).isEqualTo(4);
             assertThat(reservedOf(sku)).isZero();
@@ -254,7 +270,8 @@ class InventoryReservationIT {
     }
 
     @Test
-    void concurrentReservationsForTheLastUnit_exactlyOneSucceeds() throws Exception {
+    void concurrentReservationsForTheLastUnit_exactlyOneSucceeds() throws Exception
+    {
         String sku = givenStock(1);
         int contenders = 12;
 
@@ -262,26 +279,36 @@ class InventoryReservationIT {
         CountDownLatch finished = new CountDownLatch(contenders);
         List<Boolean> reserved = java.util.Collections.synchronizedList(new ArrayList<>());
         ExecutorService pool = Executors.newFixedThreadPool(contenders);
-        try {
-            for (int i = 0; i < contenders; i++) {
+        try
+        {
+            for (int i = 0; i < contenders; i++)
+            {
                 UUID orderId = UUID.randomUUID();
-                pool.submit(() -> {
-                    try {
+                pool.submit(() ->
+                {
+                    try
+                    {
                         startLine.await();
                         inventoryService.reserve(orderId, UUID.randomUUID(),
                                 List.of(new InventoryService.RequestedLine(sku, 1)), 600,
                                 UUID.randomUUID(), UUID.randomUUID());
                         reserved.add(reservationCountFor(orderId) == 1);
-                    } catch (InterruptedException e) {
+                    }
+                    catch (InterruptedException e)
+                    {
                         Thread.currentThread().interrupt();
-                    } finally {
+                    }
+                    finally
+                    {
                         finished.countDown();
                     }
                 });
             }
             startLine.countDown();
             assertThat(finished.await(60, TimeUnit.SECONDS)).isTrue();
-        } finally {
+        }
+        finally
+        {
             pool.shutdownNow();
         }
 
@@ -296,7 +323,8 @@ class InventoryReservationIT {
     }
 
     @Test
-    void availabilityEndpoint_servesTheDisplayValueAndReportsUnknownSkus() {
+    void availabilityEndpoint_servesTheDisplayValueAndReportsUnknownSkus()
+    {
         String sku = givenStock(8);
         RestTestClient.Builder<?> builder = RestTestClient.bindToServer();
         builder.baseUrl("http://localhost:" + port);
@@ -323,50 +351,65 @@ class InventoryReservationIT {
     // ---------------------------------------------------------------------
 
     /** A SKU unique to the calling test, so tests never contend over the same stock row. */
-    private String givenStock(int onHand) {
+    private String givenStock(int onHand)
+    {
         String sku = "SKU-IT-" + UUID.randomUUID().toString().substring(0, 8);
         jdbc.update("insert into inventory.stock_item (sku, on_hand, reserved) values (?, ?, 0)", sku, onHand);
         return sku;
     }
 
-    private int onHandOf(String sku) {
+    private int onHandOf(String sku)
+    {
         return jdbc.queryForObject("select on_hand from inventory.stock_item where sku = ?", Integer.class, sku);
     }
 
-    private int reservedOf(String sku) {
+    private int reservedOf(String sku)
+    {
         return jdbc.queryForObject("select reserved from inventory.stock_item where sku = ?", Integer.class, sku);
     }
 
-    private int availableOf(String sku) {
+    private int availableOf(String sku)
+    {
         return jdbc.queryForObject(
                 "select on_hand - reserved from inventory.stock_item where sku = ?", Integer.class, sku);
     }
 
-    private String statusOfReservation(UUID reservationId) {
+    private String statusOfReservation(UUID reservationId)
+    {
         List<String> statuses = jdbc.queryForList(
                 "select status from inventory.reservation where id = ?", String.class, reservationId);
         return statuses.isEmpty() ? null : statuses.get(0);
     }
 
-    private int reservationCountFor(UUID orderId) {
+    private int reservationCountFor(UUID orderId)
+    {
         return jdbc.queryForObject(
                 "select count(*) from inventory.reservation where order_id = ?", Integer.class, orderId);
     }
 
-    private int processedMessageCount() {
+    private int processedMessageCount()
+    {
         return jdbc.queryForObject(
                 "select count(*) from inventory.processed_message where consumer_group = 'inventory-service'",
                 Integer.class);
     }
 
-    private void publishReserveStock(UUID orderId, UUID reservationId, String sku, int quantity,
-                                     int ttlSeconds) {
+    private void publishReserveStock(UUID orderId,
+                                     UUID reservationId,
+                                     String sku,
+                                     int quantity,
+                                     int ttlSeconds)
+    {
         publishRaw(PlatformTopics.COMMANDS_INVENTORY_RESERVE, orderId,
                 encodeReserveStock(orderId, reservationId, sku, quantity, ttlSeconds));
     }
 
-    private byte[] encodeReserveStock(UUID orderId, UUID reservationId, String sku, int quantity,
-                                      int ttlSeconds) {
+    private byte[] encodeReserveStock(UUID orderId,
+                                      UUID reservationId,
+                                      String sku,
+                                      int quantity,
+                                      int ttlSeconds)
+    {
         ReserveStock payload = ReserveStock.newBuilder()
                 .setOrderId(orderId)
                 .setReservationId(reservationId)
@@ -376,7 +419,8 @@ class InventoryReservationIT {
         return encode(MessageKind.COMMAND, MessageTypes.COMMAND_INVENTORY_RESERVE, orderId, payload);
     }
 
-    private void publishReleaseStock(UUID orderId, UUID reservationId) {
+    private void publishReleaseStock(UUID orderId, UUID reservationId)
+    {
         ReleaseStock payload = ReleaseStock.newBuilder()
                 .setOrderId(orderId)
                 .setReservationId(reservationId)
@@ -385,7 +429,8 @@ class InventoryReservationIT {
                 encode(MessageKind.COMMAND, MessageTypes.COMMAND_INVENTORY_RELEASE, orderId, payload));
     }
 
-    private void publishOrderConfirmed(UUID orderId) {
+    private void publishOrderConfirmed(UUID orderId)
+    {
         OrderConfirmed payload = OrderConfirmed.newBuilder()
                 .setOrderId(orderId)
                 .setConfirmedAt(Instant.now())
@@ -394,11 +439,13 @@ class InventoryReservationIT {
                 encode(MessageKind.EVENT, MessageTypes.EVENT_ORDER_CONFIRMED, orderId, payload));
     }
 
-    private byte[] encode(MessageKind kind, String type, UUID orderId, SpecificRecordBase payload) {
+    private byte[] encode(MessageKind kind, String type, UUID orderId, SpecificRecordBase payload)
+    {
         return codec.encodeEnvelope(kind, type, UUID.randomUUID(), null, orderId, payload);
     }
 
-    private void publishRaw(String topic, UUID orderId, byte[] envelopeBytes) {
+    private void publishRaw(String topic, UUID orderId, byte[] envelopeBytes)
+    {
         // Key = order id, matching the orchestrator: every message for one order lands on one
         // partition, which is what keeps per-order ordering (ADR-0017).
         producer.send(new ProducerRecord<>(topic, orderId.toString(), envelopeBytes));
@@ -410,23 +457,29 @@ class InventoryReservationIT {
      * Non-matching records are buffered rather than discarded, so a later assertion in the same
      * class can still find them — the consumer is never re-subscribed mid-class.
      */
-    private Envelope awaitEvent(UUID orderId, String expectedType) {
+    private Envelope awaitEvent(UUID orderId, String expectedType)
+    {
         String aggregateId = orderId.toString();
         var iterator = buffered.iterator();
-        while (iterator.hasNext()) {
+        while (iterator.hasNext())
+        {
             Envelope envelope = iterator.next();
-            if (matches(envelope, aggregateId, expectedType)) {
+            if (matches(envelope, aggregateId, expectedType))
+            {
                 iterator.remove();
                 return envelope;
             }
         }
 
         long deadline = System.currentTimeMillis() + 20_000;
-        while (System.currentTimeMillis() < deadline) {
+        while (System.currentTimeMillis() < deadline)
+        {
             var records = verifier.poll(Duration.ofMillis(300));
-            for (ConsumerRecord<String, byte[]> record : records) {
+            for (ConsumerRecord<String, byte[]> record : records)
+            {
                 Envelope envelope = codec.decodeEnvelope(record.value());
-                if (matches(envelope, aggregateId, expectedType)) {
+                if (matches(envelope, aggregateId, expectedType))
+                {
                     return envelope;
                 }
                 buffered.add(envelope);
@@ -436,7 +489,8 @@ class InventoryReservationIT {
                 "Expected " + expectedType + " for order " + orderId + " but none arrived in time");
     }
 
-    private boolean matches(Envelope envelope, String aggregateId, String expectedType) {
+    private boolean matches(Envelope envelope, String aggregateId, String expectedType)
+    {
         return envelope.getAggregateId().equals(aggregateId) && envelope.getType().equals(expectedType);
     }
 }

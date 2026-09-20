@@ -32,8 +32,9 @@ import java.util.UUID;
  * behind the scenes (ADR-0003). See docs/api/REST-API-GUIDE.md.
  */
 @RestController
-@RequestMapping("/api/v1/orders")
-public class OrderController {
+@RequestMapping ("/api/v1/orders")
+public class OrderController
+{
 
     private static final Logger log = LoggerFactory.getLogger(OrderController.class);
 
@@ -43,9 +44,10 @@ public class OrderController {
     private final RequestHasher requestHasher;
 
     public OrderController(OrderCreationService orderCreationService,
-                            OrderQueryService orderQueryService,
-                            CallerIdentityResolver callerIdentityResolver,
-                            RequestHasher requestHasher) {
+                           OrderQueryService orderQueryService,
+                           CallerIdentityResolver callerIdentityResolver,
+                           RequestHasher requestHasher)
+    {
         this.orderCreationService = orderCreationService;
         this.orderQueryService = orderQueryService;
         this.callerIdentityResolver = callerIdentityResolver;
@@ -54,8 +56,9 @@ public class OrderController {
 
     @PostMapping
     public ResponseEntity<String> placeOrder(@Valid @RequestBody PlaceOrderRequest request,
-                                              @RequestHeader("Idempotency-Key") String idempotencyKey,
-                                              HttpServletRequest servletRequest) {
+                                             @RequestHeader ("Idempotency-Key") String idempotencyKey,
+                                             HttpServletRequest servletRequest)
+    {
         String customerId = requireAuthenticatedCustomer();
         String path = servletRequest.getRequestURI();
         String requestHash = requestHasher.hash(request);
@@ -63,17 +66,19 @@ public class OrderController {
         OrderCreationService.Outcome outcome = orderCreationService.placeOrder(
                 customerId, idempotencyKey, "POST", path, request, requestHash);
 
-        return switch (outcome) {
+        return switch (outcome)
+        {
             case OrderCreationService.Created created -> accepted(created.body());
             case OrderCreationService.Replayed replayed ->
-                    ResponseEntity.status(replayed.status())
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .body(replayed.body());
+                ResponseEntity.status(replayed.status())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(replayed.body());
         };
     }
 
-    @GetMapping("/{orderId}")
-    public ResponseEntity<OrderResponse> getOrder(@PathVariable UUID orderId, HttpServletRequest servletRequest) {
+    @GetMapping ("/{orderId}")
+    public ResponseEntity<OrderResponse> getOrder(@PathVariable UUID orderId, HttpServletRequest servletRequest)
+    {
         String customerId = requireAuthenticatedCustomer();
         OrderResponse response = orderQueryService.getOwnedOrder(orderId, customerId);
         return ResponseEntity.ok()
@@ -81,7 +86,8 @@ public class OrderController {
                 .body(response);
     }
 
-    private ResponseEntity<String> accepted(OrderAcceptedResponse body) {
+    private ResponseEntity<String> accepted(OrderAcceptedResponse body)
+    {
         URI location = URI.create("/api/v1/orders/" + body.orderId());
         String json = "{\"orderId\":\"" + body.orderId() + "\",\"status\":\"" + body.status() + "\"}";
         return ResponseEntity.accepted()
@@ -91,9 +97,11 @@ public class OrderController {
                 .body(json);
     }
 
-    private String requireAuthenticatedCustomer() {
+    private String requireAuthenticatedCustomer()
+    {
         String customerId = callerIdentityResolver.resolve();
-        if (customerId == null) {
+        if (customerId == null)
+        {
             throw new UnauthenticatedException("Missing caller identity.");
         }
         return customerId;

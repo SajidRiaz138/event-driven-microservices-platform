@@ -8,7 +8,8 @@ import java.util.List;
 import java.util.UUID;
 
 @Repository
-public interface PaymentAttemptRepository extends JpaRepository<PaymentAttemptEntity, UUID> {
+public interface PaymentAttemptRepository extends JpaRepository<PaymentAttemptEntity, UUID>
+{
 
     /** Attempts for an intent, oldest first. Several are legitimate (ADR-0016 §1). */
     List<PaymentAttemptEntity> findByIntentIdOrderByCreatedAtAsc(UUID intentId);

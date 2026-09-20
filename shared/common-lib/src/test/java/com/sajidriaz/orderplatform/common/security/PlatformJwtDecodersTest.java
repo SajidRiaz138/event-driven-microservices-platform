@@ -11,10 +11,12 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class PlatformJwtDecodersTest {
+class PlatformJwtDecodersTest
+{
 
     @Test
-    void audienceValidator_acceptsATokenCarryingTheExpectedAudience() {
+    void audienceValidator_acceptsATokenCarryingTheExpectedAudience()
+    {
         OAuth2TokenValidatorResult result = PlatformJwtDecoders.audienceValidator("order-platform")
                 .validate(jwtWithAudience(List.of("order-platform")));
 
@@ -22,7 +24,8 @@ class PlatformJwtDecodersTest {
     }
 
     @Test
-    void audienceValidator_acceptsTheExpectedAudienceAlongsideOthers() {
+    void audienceValidator_acceptsTheExpectedAudienceAlongsideOthers()
+    {
         OAuth2TokenValidatorResult result = PlatformJwtDecoders.audienceValidator("order-platform")
                 .validate(jwtWithAudience(List.of("account", "order-platform")));
 
@@ -30,7 +33,8 @@ class PlatformJwtDecodersTest {
     }
 
     @Test
-    void audienceValidator_rejectsATokenMintedForSomebodyElse() {
+    void audienceValidator_rejectsATokenMintedForSomebodyElse()
+    {
         OAuth2TokenValidatorResult result = PlatformJwtDecoders.audienceValidator("order-platform")
                 .validate(jwtWithAudience(List.of("some-other-system")));
 
@@ -39,21 +43,26 @@ class PlatformJwtDecodersTest {
     }
 
     @Test
-    void audienceValidator_rejectsATokenWithNoAudienceAtAll() {
+    void audienceValidator_rejectsATokenWithNoAudienceAtAll()
+    {
         assertTrue(PlatformJwtDecoders.audienceValidator("order-platform")
                 .validate(jwtWithAudience(null))
                 .hasErrors());
     }
 
-    private Jwt jwtWithAudience(List<String> audience) {
+    private Jwt jwtWithAudience(List<String> audience)
+    {
         Jwt.Builder builder = Jwt.withTokenValue("token")
                 .header("alg", "RS256")
                 .subject("3b3a382f-216b-4edf-8118-c93ac7db1a59")
                 .issuedAt(Instant.now())
                 .expiresAt(Instant.now().plusSeconds(300));
-        if (audience != null) {
+        if (audience != null)
+        {
             builder.audience(audience);
-        } else {
+        }
+        else
+        {
             // Jwt requires at least one claim; use an unrelated one so `aud` stays absent.
             builder.claims(claims -> claims.put("scope", "orders:read"));
         }

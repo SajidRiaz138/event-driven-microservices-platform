@@ -19,19 +19,23 @@ import java.io.IOException;
  * deliberately answers 404 for an order belonging to another customer (S-15).
  */
 @Component
-public class ProblemDetailAccessDeniedHandler implements AccessDeniedHandler {
+public class ProblemDetailAccessDeniedHandler implements AccessDeniedHandler
+{
 
     @Override
-    public void handle(HttpServletRequest request, HttpServletResponse response,
-                        AccessDeniedException accessDeniedException) throws IOException {
+    public void handle(HttpServletRequest request,
+                       HttpServletResponse response,
+                       AccessDeniedException accessDeniedException) throws IOException
+    {
         response.setStatus(HttpStatus.FORBIDDEN.value());
         response.setContentType(ProblemJson.CONTENT_TYPE);
-        response.getWriter().write(ProblemJson.render(
-                HttpStatus.FORBIDDEN.value(),
-                "insufficient-scope",
-                "Forbidden",
-                "The access token does not grant the scope required for this operation.",
-                request.getRequestURI(),
-                CorrelationContext.currentCorrelationId()));
+        response.getWriter()
+                .write(ProblemJson.render(
+                        HttpStatus.FORBIDDEN.value(),
+                        "insufficient-scope",
+                        "Forbidden",
+                        "The access token does not grant the scope required for this operation.",
+                        request.getRequestURI(),
+                        CorrelationContext.currentCorrelationId()));
     }
 }

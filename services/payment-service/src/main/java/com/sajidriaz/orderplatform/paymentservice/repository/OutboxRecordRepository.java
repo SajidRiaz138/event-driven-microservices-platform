@@ -10,7 +10,8 @@ import java.util.List;
 import java.util.UUID;
 
 @Repository
-public interface OutboxRecordRepository extends JpaRepository<OutboxRecordEntity, UUID> {
+public interface OutboxRecordRepository extends JpaRepository<OutboxRecordEntity, UUID>
+{
 
     /**
      * Selects a batch of PENDING outbox rows for publishing, locking them so concurrent relay
@@ -18,14 +19,14 @@ public interface OutboxRecordRepository extends JpaRepository<OutboxRecordEntity
      * {@code SKIP LOCKED} means a row already claimed by another replica is skipped rather than
      * blocking this poll.
      */
-    @Query(value = """
+    @Query (value = """
             select * from payment.outbox
             where status = 'PENDING'
             order by created_at
             limit :batchSize
             for update skip locked
             """, nativeQuery = true)
-    List<OutboxRecordEntity> lockNextBatch(@Param("batchSize") int batchSize);
+    List<OutboxRecordEntity> lockNextBatch(@Param ("batchSize") int batchSize);
 
     /** Unpublished backlog — the outbox-lag gauge ADR-0013 asks for. */
     long countByStatus(com.sajidriaz.orderplatform.common.outbox.OutboxStatus status);

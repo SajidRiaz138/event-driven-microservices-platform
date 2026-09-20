@@ -5,9 +5,11 @@ package com.sajidriaz.orderplatform.apigateway.routing;
  * simply does not exist at the edge, and saying anything more would describe the internal route
  * table.
  */
-public class NoRouteException extends RuntimeException {
+public class NoRouteException extends RuntimeException
+{
 
-    public NoRouteException(String path) {
+    public NoRouteException(String path)
+    {
         super("No route matches " + path);
     }
 }

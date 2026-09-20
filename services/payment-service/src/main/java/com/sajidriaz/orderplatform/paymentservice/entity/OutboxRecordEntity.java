@@ -24,36 +24,37 @@ import java.util.UUID;
  * to order-service's by design.
  */
 @Entity
-@Table(name = "outbox", schema = "payment")
-public class OutboxRecordEntity {
+@Table (name = "outbox", schema = "payment")
+public class OutboxRecordEntity
+{
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+    @GeneratedValue (strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "aggregate_id", nullable = false)
+    @Column (name = "aggregate_id", nullable = false)
     private UUID aggregateId;
 
     /** Fully-qualified message type, e.g. {@code events.payment.authorized} (ADR-0010). */
-    @Column(name = "message_type", nullable = false, length = 160)
+    @Column (name = "message_type", nullable = false, length = 160)
     private String messageType;
 
-    @Column(name = "message_kind", nullable = false, length = 10)
+    @Column (name = "message_kind", nullable = false, length = 10)
     private String messageKind;
 
     /** Concrete Kafka topic, e.g. {@code events.payment.authorized.v1}. */
-    @Column(name = "topic", nullable = false, length = 160)
+    @Column (name = "topic", nullable = false, length = 160)
     private String topic;
 
     /** The fully Avro-serialized {@code Envelope}, ready to publish as-is. */
-    @Column(name = "payload", nullable = false)
+    @Column (name = "payload", nullable = false)
     private byte[] payload;
 
-    @Column(name = "headers")
+    @Column (name = "headers")
     private String headers;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 10)
+    @Enumerated (EnumType.STRING)
+    @Column (name = "status", nullable = false, length = 10)
     private OutboxStatus status = OutboxStatus.PENDING;
 
     /**
@@ -61,22 +62,27 @@ public class OutboxRecordEntity {
      * permanently unsendable row retried forever with no signal; counting attempts lets the
      * relay give up and mark the row FAILED so it surfaces in metrics/alerts instead.
      */
-    @Column(name = "attempt_count", nullable = false)
+    @Column (name = "attempt_count", nullable = false)
     private int attemptCount;
 
     @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column (name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    @Column(name = "sent_at")
+    @Column (name = "sent_at")
     private Instant sentAt;
 
-    protected OutboxRecordEntity() {
+    protected OutboxRecordEntity()
+    {
         // JPA
     }
 
-    public OutboxRecordEntity(UUID aggregateId, String messageType, String messageKind,
-                              String topic, byte[] payload) {
+    public OutboxRecordEntity(UUID aggregateId,
+                              String messageType,
+                              String messageKind,
+                              String topic,
+                              byte[] payload)
+    {
         this.aggregateId = aggregateId;
         this.messageType = messageType;
         this.messageKind = messageKind;
@@ -85,61 +91,75 @@ public class OutboxRecordEntity {
         this.status = OutboxStatus.PENDING;
     }
 
-    public UUID getId() {
+    public UUID getId()
+    {
         return id;
     }
 
-    public UUID getAggregateId() {
+    public UUID getAggregateId()
+    {
         return aggregateId;
     }
 
-    public String getMessageType() {
+    public String getMessageType()
+    {
         return messageType;
     }
 
-    public String getMessageKind() {
+    public String getMessageKind()
+    {
         return messageKind;
     }
 
-    public String getTopic() {
+    public String getTopic()
+    {
         return topic;
     }
 
-    public byte[] getPayload() {
+    public byte[] getPayload()
+    {
         return payload;
     }
 
-    public String getHeaders() {
+    public String getHeaders()
+    {
         return headers;
     }
 
-    public OutboxStatus getStatus() {
+    public OutboxStatus getStatus()
+    {
         return status;
     }
 
-    public int getAttemptCount() {
+    public int getAttemptCount()
+    {
         return attemptCount;
     }
 
-    public Instant getCreatedAt() {
+    public Instant getCreatedAt()
+    {
         return createdAt;
     }
 
-    public Instant getSentAt() {
+    public Instant getSentAt()
+    {
         return sentAt;
     }
 
-    public void markSent(Instant sentAt) {
+    public void markSent(Instant sentAt)
+    {
         this.status = OutboxStatus.SENT;
         this.sentAt = sentAt;
     }
 
     /** Record a failed publish attempt; returns the new attempt count. */
-    public int recordFailedAttempt() {
+    public int recordFailedAttempt()
+    {
         return ++this.attemptCount;
     }
 
-    public void markFailed() {
+    public void markFailed()
+    {
         this.status = OutboxStatus.FAILED;
     }
 }

@@ -14,14 +14,16 @@ import java.time.Duration;
  * nothing — changing the property had no effect. It is now genuinely wired.
  */
 @Configuration
-public class SagaConfig {
+public class SagaConfig
+{
 
     @Bean
     public SagaTimeouts sagaTimeouts(
-            @Value("${order-platform.saga.reservation-ttl-seconds:900}") int reservationTtlSeconds,
-            @Value("${order-platform.saga.step-timeout.stock-reservation-seconds:30}") long stockReservationSeconds,
-            @Value("${order-platform.saga.step-timeout.payment-authorization-seconds:30}") long paymentAuthorizationSeconds,
-            @Value("${order-platform.saga.step-timeout.payment-capture-seconds:30}") long paymentCaptureSeconds) {
+                                     @Value ("${order-platform.saga.reservation-ttl-seconds:900}") int reservationTtlSeconds,
+                                     @Value ("${order-platform.saga.step-timeout.stock-reservation-seconds:30}") long stockReservationSeconds,
+                                     @Value ("${order-platform.saga.step-timeout.payment-authorization-seconds:30}") long paymentAuthorizationSeconds,
+                                     @Value ("${order-platform.saga.step-timeout.payment-capture-seconds:30}") long paymentCaptureSeconds)
+    {
         return new SagaTimeouts(
                 reservationTtlSeconds,
                 Duration.ofSeconds(stockReservationSeconds),

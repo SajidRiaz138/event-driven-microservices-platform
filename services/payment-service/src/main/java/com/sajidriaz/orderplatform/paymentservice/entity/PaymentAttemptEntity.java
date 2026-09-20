@@ -22,48 +22,55 @@ import java.util.UUID;
  * operations, and a duplicated status would be a second source of truth free to disagree with them.
  */
 @Entity
-@Table(name = "payment_attempt", schema = "payment")
-public class PaymentAttemptEntity {
+@Table (name = "payment_attempt", schema = "payment")
+public class PaymentAttemptEntity
+{
 
     @Id
-    @Column(name = "id", nullable = false)
+    @Column (name = "id", nullable = false)
     private UUID id;
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "intent_id", nullable = false)
+    @ManyToOne (fetch = FetchType.EAGER)
+    @JoinColumn (name = "intent_id", nullable = false)
     private PaymentIntentEntity intent;
 
     /** Opaque provider token used for this attempt. Never a PAN. */
-    @Column(name = "payment_method_token", nullable = false, length = 255)
+    @Column (name = "payment_method_token", nullable = false, length = 255)
     private String paymentMethodToken;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column (name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    protected PaymentAttemptEntity() {
+    protected PaymentAttemptEntity()
+    {
         // JPA
     }
 
-    public PaymentAttemptEntity(UUID id, PaymentIntentEntity intent, String paymentMethodToken) {
+    public PaymentAttemptEntity(UUID id, PaymentIntentEntity intent, String paymentMethodToken)
+    {
         this.id = id;
         this.intent = intent;
         this.paymentMethodToken = paymentMethodToken;
         this.createdAt = Instant.now();
     }
 
-    public UUID getId() {
+    public UUID getId()
+    {
         return id;
     }
 
-    public PaymentIntentEntity getIntent() {
+    public PaymentIntentEntity getIntent()
+    {
         return intent;
     }
 
-    public String getPaymentMethodToken() {
+    public String getPaymentMethodToken()
+    {
         return paymentMethodToken;
     }
 
-    public Instant getCreatedAt() {
+    public Instant getCreatedAt()
+    {
         return createdAt;
     }
 }

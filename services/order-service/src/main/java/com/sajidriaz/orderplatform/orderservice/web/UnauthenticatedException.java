@@ -11,9 +11,11 @@ package com.sajidriaz.orderplatform.orderservice.web;
  * authorization rules are correct. It exists so that an accidentally loosened rule surfaces as
  * a clean 401 instead of a {@code NullPointerException} — or an order attributed to nobody.
  */
-public class UnauthenticatedException extends RuntimeException {
+public class UnauthenticatedException extends RuntimeException
+{
 
-    public UnauthenticatedException(String message) {
+    public UnauthenticatedException(String message)
+    {
         super(message);
     }
 }

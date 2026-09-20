@@ -6,5 +6,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ProcessedMessageRepository
-        extends JpaRepository<ProcessedMessageEntity, ProcessedMessageEntity.Key> {
+        extends JpaRepository<ProcessedMessageEntity, ProcessedMessageEntity.Key>
+{
 }

@@ -19,10 +19,13 @@ import java.util.UUID;
  * {@code OrderCreated}, {@code OrderConfirmed}, {@code OrderCancelled}.
  */
 @Component
-public class OrderEventFactory {
+public class OrderEventFactory
+{
 
-    public OrderCreated toOrderCreated(OrderEntity order) {
-        List<OrderLine> lines = order.getLines().stream()
+    public OrderCreated toOrderCreated(OrderEntity order)
+    {
+        List<OrderLine> lines = order.getLines()
+                .stream()
                 .map(this::toAvroLine)
                 .toList();
         return OrderCreated.newBuilder()
@@ -34,14 +37,16 @@ public class OrderEventFactory {
                 .build();
     }
 
-    public OrderConfirmed toOrderConfirmed(UUID orderId, Instant confirmedAt) {
+    public OrderConfirmed toOrderConfirmed(UUID orderId, Instant confirmedAt)
+    {
         return OrderConfirmed.newBuilder()
                 .setOrderId(orderId)
                 .setConfirmedAt(confirmedAt)
                 .build();
     }
 
-    public OrderCancelled toOrderCancelled(UUID orderId, CancellationReason reason, Instant cancelledAt) {
+    public OrderCancelled toOrderCancelled(UUID orderId, CancellationReason reason, Instant cancelledAt)
+    {
         return OrderCancelled.newBuilder()
                 .setOrderId(orderId)
                 .setReason(reason)
@@ -49,7 +54,8 @@ public class OrderEventFactory {
                 .build();
     }
 
-    private OrderLine toAvroLine(OrderLineEntity line) {
+    private OrderLine toAvroLine(OrderLineEntity line)
+    {
         return OrderLine.newBuilder()
                 .setSku(line.getSku())
                 .setQuantity(line.getQuantity())
@@ -57,7 +63,8 @@ public class OrderEventFactory {
                 .build();
     }
 
-    private Money toAvroMoney(long minorUnits, String currency) {
+    private Money toAvroMoney(long minorUnits, String currency)
+    {
         return Money.newBuilder()
                 .setMinorUnits(minorUnits)
                 .setCurrency(currency)
@@ -75,10 +82,14 @@ public class OrderEventFactory {
      * implemented, identity came from a dev-only header whose value was arbitrary, which is
      * why this fallback exists at all.)
      */
-    private UUID toUuidOrDerived(String customerId) {
-        try {
+    private UUID toUuidOrDerived(String customerId)
+    {
+        try
+        {
             return UUID.fromString(customerId);
-        } catch (IllegalArgumentException e) {
+        }
+        catch (IllegalArgumentException e)
+        {
             return UUID.nameUUIDFromBytes(customerId.getBytes());
         }
     }

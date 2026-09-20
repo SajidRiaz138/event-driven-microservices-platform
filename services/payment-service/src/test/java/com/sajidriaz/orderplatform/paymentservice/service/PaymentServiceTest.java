@@ -40,7 +40,8 @@ import static org.mockito.Mockito.when;
  * resolving both ways — depend on the provider genuinely being idempotent on its key, which a mock
  * returning canned values would not be, so the tests would prove nothing.
  */
-class PaymentServiceTest {
+class PaymentServiceTest
+{
 
     private static final String GOOD_TOKEN = "pi_ok";
     private static final String DECLINE_TOKEN = "pi_decline";
@@ -56,7 +57,8 @@ class PaymentServiceTest {
     private ReconciliationService reconciliation;
 
     @BeforeEach
-    void setUp() {
+    void setUp()
+    {
         repositories = new InMemoryRepositories();
         provider = spy(new StubPaymentProvider(
                 List.of(DECLINE_TOKEN),
@@ -72,7 +74,8 @@ class PaymentServiceTest {
     // ---------------------------------------------------------------- authorize
 
     @Test
-    void authorize_approved_recordsSucceededOperationAndEmitsPaymentAuthorized() {
+    void authorize_approved_recordsSucceededOperationAndEmitsPaymentAuthorized()
+    {
         UUID orderId = UUID.randomUUID();
 
         service.authorize(authorizeCommand(orderId, GOOD_TOKEN), UUID.randomUUID(), UUID.randomUUID());
@@ -85,7 +88,8 @@ class PaymentServiceTest {
     }
 
     @Test
-    void authorize_declined_recordsFailedOperationAndEmitsPaymentDeclined() {
+    void authorize_declined_recordsFailedOperationAndEmitsPaymentDeclined()
+    {
         UUID orderId = UUID.randomUUID();
 
         service.authorize(authorizeCommand(orderId, DECLINE_TOKEN), UUID.randomUUID(), UUID.randomUUID());
@@ -98,7 +102,8 @@ class PaymentServiceTest {
     }
 
     @Test
-    void authorize_repeatedForTheSameAttempt_callsTheProviderOnceAndReEmitsTheReply() {
+    void authorize_repeatedForTheSameAttempt_callsTheProviderOnceAndReEmitsTheReply()
+    {
         UUID orderId = UUID.randomUUID();
         PaymentService.AuthorizeCommand command = authorizeCommand(orderId, GOOD_TOKEN);
 
@@ -112,7 +117,8 @@ class PaymentServiceTest {
     }
 
     @Test
-    void asecondAttemptForTheSameOrderIsAllowed_dedupIsNeverOnTheOrder() {
+    void asecondAttemptForTheSameOrderIsAllowed_dedupIsNeverOnTheOrder()
+    {
         // ADR-0016's central modelling point: a declined card must be retryable with another
         // instrument, which a UNIQUE(order_id) dedup would forbid outright.
         UUID orderId = UUID.randomUUID();
@@ -134,7 +140,8 @@ class PaymentServiceTest {
     // ------------------------------------------------------------------ capture
 
     @Test
-    void capture_afterAuthorization_succeedsAndEmitsThePivotEvent() {
+    void capture_afterAuthorization_succeedsAndEmitsThePivotEvent()
+    {
         UUID orderId = authorizedOrder(GOOD_TOKEN);
 
         service.capture(orderId, UUID.randomUUID(), UUID.randomUUID());
@@ -146,7 +153,8 @@ class PaymentServiceTest {
     }
 
     @Test
-    void capture_withNoEstablishedAuthorization_emitsCaptureFailedAndNeverCallsTheProvider() {
+    void capture_withNoEstablishedAuthorization_emitsCaptureFailedAndNeverCallsTheProvider()
+    {
         UUID orderId = UUID.randomUUID();
         // A declined authorization is not an authorization.
         service.authorize(authorizeCommand(orderId, DECLINE_TOKEN), UUID.randomUUID(), UUID.randomUUID());
@@ -160,7 +168,8 @@ class PaymentServiceTest {
     }
 
     @Test
-    void capture_repeated_doesNotCaptureTwice_andReEmitsThePivotEvent() {
+    void capture_repeated_doesNotCaptureTwice_andReEmitsThePivotEvent()
+    {
         UUID orderId = authorizedOrder(GOOD_TOKEN);
         service.capture(orderId, UUID.randomUUID(), UUID.randomUUID());
 
@@ -173,7 +182,8 @@ class PaymentServiceTest {
     }
 
     @Test
-    void capture_reusesTheSameProviderIdempotencyKeyForAnOrdersCapture() {
+    void capture_reusesTheSameProviderIdempotencyKeyForAnOrdersCapture()
+    {
         UUID orderId = authorizedOrder(GOOD_TOKEN);
         service.capture(orderId, UUID.randomUUID(), UUID.randomUUID());
 
@@ -187,7 +197,8 @@ class PaymentServiceTest {
     // ------------------------------------------------- the UNKNOWN capture path
 
     @Test
-    void capture_whenTheResponseIsLost_recordsUnknownAndAnnouncesIt() {
+    void capture_whenTheResponseIsLost_recordsUnknownAndAnnouncesIt()
+    {
         UUID orderId = authorizedOrder(TIMEOUT_CAPTURED_TOKEN);
 
         service.capture(orderId, UUID.randomUUID(), UUID.randomUUID());
@@ -201,7 +212,8 @@ class PaymentServiceTest {
     }
 
     @Test
-    void capture_whileUnknown_isNotRetriedAgainstTheProvider() {
+    void capture_whileUnknown_isNotRetriedAgainstTheProvider()
+    {
         UUID orderId = authorizedOrder(TIMEOUT_CAPTURED_TOKEN);
         service.capture(orderId, UUID.randomUUID(), UUID.randomUUID());
 
@@ -214,7 +226,8 @@ class PaymentServiceTest {
     }
 
     @Test
-    void reconciliation_findsTheFundsWereTaken_resolvesSucceededAndEmitsCaptured() {
+    void reconciliation_findsTheFundsWereTaken_resolvesSucceededAndEmitsCaptured()
+    {
         UUID orderId = authorizedOrder(TIMEOUT_CAPTURED_TOKEN);
         service.capture(orderId, UUID.randomUUID(), UUID.randomUUID());
         PaymentOperationEntity capture = onlyOperation(OperationType.CAPTURE);
@@ -230,7 +243,8 @@ class PaymentServiceTest {
     }
 
     @Test
-    void reconciliation_findsTheFundsWereNotTaken_resolvesFailedAndEmitsCaptureFailed() {
+    void reconciliation_findsTheFundsWereNotTaken_resolvesFailedAndEmitsCaptureFailed()
+    {
         UUID orderId = authorizedOrder(TIMEOUT_LOST_TOKEN);
         service.capture(orderId, UUID.randomUUID(), UUID.randomUUID());
         PaymentOperationEntity capture = onlyOperation(OperationType.CAPTURE);
@@ -246,7 +260,8 @@ class PaymentServiceTest {
     }
 
     @Test
-    void reconciliation_whenTheProviderStillCannotSay_leavesTheOperationUnknownAndEmitsNothing() {
+    void reconciliation_whenTheProviderStillCannotSay_leavesTheOperationUnknownAndEmitsNothing()
+    {
         UUID orderId = authorizedOrder(TIMEOUT_UNANSWERABLE_TOKEN);
         service.capture(orderId, UUID.randomUUID(), UUID.randomUUID());
         PaymentOperationEntity capture = onlyOperation(OperationType.CAPTURE);
@@ -262,7 +277,8 @@ class PaymentServiceTest {
     }
 
     @Test
-    void reconciliation_ignoresOperationsThatAreAlreadyResolved() {
+    void reconciliation_ignoresOperationsThatAreAlreadyResolved()
+    {
         UUID orderId = authorizedOrder(GOOD_TOKEN);
         service.capture(orderId, UUID.randomUUID(), UUID.randomUUID());
         PaymentOperationEntity capture = onlyOperation(OperationType.CAPTURE);
@@ -277,7 +293,8 @@ class PaymentServiceTest {
     // ------------------------------------------------------------------- refund
 
     @Test
-    void refund_isRefusedWhenNoCaptureIsEstablished() {
+    void refund_isRefusedWhenNoCaptureIsEstablished()
+    {
         UUID orderId = authorizedOrder(TIMEOUT_CAPTURED_TOKEN);
         service.capture(orderId, UUID.randomUUID(), UUID.randomUUID());
         assertThat(onlyOperation(OperationType.CAPTURE).getStatus()).isEqualTo(OperationStatus.UNKNOWN);
@@ -292,7 +309,8 @@ class PaymentServiceTest {
     }
 
     @Test
-    void refund_afterAnEstablishedCapture_succeedsAndEmitsPaymentRefunded() {
+    void refund_afterAnEstablishedCapture_succeedsAndEmitsPaymentRefunded()
+    {
         UUID orderId = authorizedOrder(GOOD_TOKEN);
         service.capture(orderId, UUID.randomUUID(), UUID.randomUUID());
 
@@ -305,7 +323,8 @@ class PaymentServiceTest {
     }
 
     @Test
-    void refund_repeated_doesNotRefundTwice() {
+    void refund_repeated_doesNotRefundTwice()
+    {
         UUID orderId = authorizedOrder(GOOD_TOKEN);
         service.capture(orderId, UUID.randomUUID(), UUID.randomUUID());
         PaymentService.RefundCommand command = new PaymentService.RefundCommand(orderId,
@@ -319,7 +338,8 @@ class PaymentServiceTest {
     }
 
     @Test
-    void refund_withNoIntentForTheOrder_isANoOp() {
+    void refund_withNoIntentForTheOrder_isANoOp()
+    {
         service.refund(new PaymentService.RefundCommand(UUID.randomUUID(), UUID.randomUUID(),
                 UUID.randomUUID(), AMOUNT), UUID.randomUUID(), UUID.randomUUID());
 
@@ -328,7 +348,8 @@ class PaymentServiceTest {
     }
 
     @Test
-    void capture_withNoIntentForTheOrder_isANoOp() {
+    void capture_withNoIntentForTheOrder_isANoOp()
+    {
         service.capture(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
 
         verify(provider, never()).capture(any());
@@ -337,7 +358,8 @@ class PaymentServiceTest {
     }
 
     @Test
-    void noCardDataIsEverStored_onlyAnOpaqueToken() {
+    void noCardDataIsEverStored_onlyAnOpaqueToken()
+    {
         UUID orderId = authorizedOrder(GOOD_TOKEN);
 
         PaymentIntentEntity intent = repositories.intents.findByOrderId(orderId).orElseThrow();
@@ -349,18 +371,21 @@ class PaymentServiceTest {
 
     // ---------------------------------------------------------------------
 
-    private PaymentService.AuthorizeCommand authorizeCommand(UUID orderId, String token) {
+    private PaymentService.AuthorizeCommand authorizeCommand(UUID orderId, String token)
+    {
         return new PaymentService.AuthorizeCommand(orderId, UUID.randomUUID(), UUID.randomUUID(),
                 UUID.randomUUID(), AMOUNT, token);
     }
 
-    private UUID authorizedOrder(String token) {
+    private UUID authorizedOrder(String token)
+    {
         UUID orderId = UUID.randomUUID();
         service.authorize(authorizeCommand(orderId, token), UUID.randomUUID(), UUID.randomUUID());
         return orderId;
     }
 
-    private PaymentOperationEntity onlyOperation(OperationType type) {
+    private PaymentOperationEntity onlyOperation(OperationType type)
+    {
         List<PaymentOperationEntity> operations = repositories.allOperations(type);
         assertThat(operations).hasSize(1);
         return operations.get(0);
@@ -371,7 +396,8 @@ class PaymentServiceTest {
      * these tests exercise multi-step flows (authorize then capture then refund) where each step must
      * see what the previous one persisted — canned per-call answers could not represent that.
      */
-    private static final class InMemoryRepositories {
+    private static final class InMemoryRepositories
+    {
 
         private final Map<UUID, PaymentIntentEntity> intentsById = new LinkedHashMap<>();
         private final Map<UUID, PaymentAttemptEntity> attemptsById = new LinkedHashMap<>();
@@ -381,51 +407,58 @@ class PaymentServiceTest {
         private final PaymentAttemptRepository attempts = mock(PaymentAttemptRepository.class);
         private final PaymentOperationRepository operations = mock(PaymentOperationRepository.class);
 
-        InMemoryRepositories() {
-            when(intents.save(any())).thenAnswer(i -> {
+        InMemoryRepositories()
+        {
+            when(intents.save(any())).thenAnswer(i ->
+            {
                 PaymentIntentEntity intent = i.getArgument(0);
                 intentsById.put(intent.getId(), intent);
                 return intent;
             });
-            when(intents.findByOrderId(any())).thenAnswer(i -> intentsById.values().stream()
+            when(intents.findByOrderId(any())).thenAnswer(i -> intentsById.values()
+                    .stream()
                     .filter(intent -> intent.getOrderId().equals(i.getArgument(0)))
                     .findFirst());
 
-            when(attempts.save(any())).thenAnswer(i -> {
+            when(attempts.save(any())).thenAnswer(i ->
+            {
                 PaymentAttemptEntity attempt = i.getArgument(0);
                 attemptsById.put(attempt.getId(), attempt);
                 return attempt;
             });
-            when(attempts.findById(any())).thenAnswer(i ->
-                    Optional.ofNullable(attemptsById.get(i.<UUID>getArgument(0))));
-            when(attempts.findByIntentIdOrderByCreatedAtAsc(any())).thenAnswer(i ->
-                    attemptsById.values().stream()
-                            .filter(attempt -> attempt.getIntent().getId().equals(i.getArgument(0)))
-                            .sorted(Comparator.comparing(PaymentAttemptEntity::getCreatedAt))
-                            .toList());
+            when(attempts.findById(any())).thenAnswer(i -> Optional.ofNullable(attemptsById.get(i.<UUID> getArgument(0))));
+            when(attempts.findByIntentIdOrderByCreatedAtAsc(any())).thenAnswer(i -> attemptsById.values()
+                    .stream()
+                    .filter(attempt -> attempt.getIntent().getId().equals(i.getArgument(0)))
+                    .sorted(Comparator.comparing(PaymentAttemptEntity::getCreatedAt))
+                    .toList());
 
-            when(operations.save(any())).thenAnswer(i -> {
+            when(operations.save(any())).thenAnswer(i ->
+            {
                 PaymentOperationEntity operation = i.getArgument(0);
                 operationsById.put(operation.getId(), operation);
                 return operation;
             });
-            when(operations.findByProviderIdempotencyKey(any())).thenAnswer(i ->
-                    operationsById.values().stream()
-                            .filter(operation -> operation.getProviderIdempotencyKey()
-                                    .equals(i.getArgument(0)))
-                            .findFirst());
-            when(operations.findByAttemptTypeAndStatus(any(), any(), any())).thenAnswer(i ->
-                    operationsById.values().stream()
-                            .filter(operation -> operation.getAttempt().getId().equals(i.getArgument(0)))
-                            .filter(operation -> operation.getOperationType() == i.getArgument(1))
-                            .filter(operation -> operation.getStatus() == i.getArgument(2))
-                            .toList());
+            when(operations.findByProviderIdempotencyKey(any())).thenAnswer(i -> operationsById.values()
+                    .stream()
+                    .filter(operation -> operation.getProviderIdempotencyKey()
+                            .equals(i.getArgument(0)))
+                    .findFirst());
+            when(operations.findByAttemptTypeAndStatus(any(), any(), any())).thenAnswer(i -> operationsById.values()
+                    .stream()
+                    .filter(operation -> operation.getAttempt().getId().equals(i.getArgument(0)))
+                    .filter(operation -> operation.getOperationType() == i.getArgument(1))
+                    .filter(operation -> operation.getStatus() == i.getArgument(2))
+                    .toList());
         }
 
-        List<PaymentOperationEntity> allOperations(OperationType type) {
+        List<PaymentOperationEntity> allOperations(OperationType type)
+        {
             List<PaymentOperationEntity> matching = new ArrayList<>();
-            for (PaymentOperationEntity operation : operationsById.values()) {
-                if (operation.getOperationType() == type) {
+            for (PaymentOperationEntity operation : operationsById.values())
+            {
+                if (operation.getOperationType() == type)
+                {
                     matching.add(operation);
                 }
             }

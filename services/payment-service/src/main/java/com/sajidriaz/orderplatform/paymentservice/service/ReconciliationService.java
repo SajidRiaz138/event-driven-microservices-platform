@@ -40,7 +40,8 @@ import java.util.Optional;
  * would publish the pivot event twice.
  */
 @Service
-public class ReconciliationService {
+public class ReconciliationService
+{
 
     private static final Logger log = LoggerFactory.getLogger(ReconciliationService.class);
 
@@ -53,8 +54,9 @@ public class ReconciliationService {
     public ReconciliationService(PaymentOperationRepository operationRepository,
                                  PaymentProvider provider,
                                  PaymentEventPublisher events,
-                                 @Value("${payment.reconciliation.batch-size:50}") int batchSize,
-                                 @Value("${payment.reconciliation.max-attempts:20}") int maxAttempts) {
+                                 @Value ("${payment.reconciliation.batch-size:50}") int batchSize,
+                                 @Value ("${payment.reconciliation.max-attempts:20}") int maxAttempts)
+    {
         this.operationRepository = operationRepository;
         this.provider = provider;
         this.events = events;
@@ -62,16 +64,19 @@ public class ReconciliationService {
         this.maxAttempts = maxAttempts;
     }
 
-    @Scheduled(fixedDelayString = "${payment.reconciliation.fixed-delay-ms:1000}")
+    @Scheduled (fixedDelayString = "${payment.reconciliation.fixed-delay-ms:1000}")
     @Transactional
-    public void reconcileUnknownOperations() {
+    public void reconcileUnknownOperations()
+    {
         List<PaymentOperationEntity> unknown =
                 operationRepository.lockUnknownOperations(batchSize, maxAttempts);
-        if (unknown.isEmpty()) {
+        if (unknown.isEmpty())
+        {
             return;
         }
         log.info("Reconciling {} operation(s) with an UNKNOWN outcome", unknown.size());
-        for (PaymentOperationEntity operation : unknown) {
+        for (PaymentOperationEntity operation : unknown)
+        {
             reconcile(operation);
         }
     }
@@ -81,24 +86,30 @@ public class ReconciliationService {
      * rather than waiting for the scheduler.
      */
     @Transactional
-    public void reconcile(PaymentOperationEntity operation) {
-        if (operation.getStatus() != OperationStatus.UNKNOWN) {
+    public void reconcile(PaymentOperationEntity operation)
+    {
+        if (operation.getStatus() != OperationStatus.UNKNOWN)
+        {
             return;
         }
 
         Optional<ProviderResult> answer = provider.lookup(operation.getProviderIdempotencyKey());
-        if (answer.isEmpty()) {
+        if (answer.isEmpty())
+        {
             int attempts = operation.recordReconcileAttempt();
             operationRepository.save(operation);
-            if (attempts >= maxAttempts) {
+            if (attempts >= maxAttempts)
+            {
                 // Deliberately still UNKNOWN. Out of reconciliation budget is a reason to escalate to
                 // a human, not a licence to decide the outcome — money may be at stake either way.
                 log.error("Operation {} ({} for order {}) is still UNKNOWN after {} reconciliation "
-                                + "attempts and will no longer be polled automatically. Manual "
-                                + "reconciliation required; the outcome remains undecided.",
+                        + "attempts and will no longer be polled automatically. Manual "
+                        + "reconciliation required; the outcome remains undecided.",
                         operation.getId(), operation.getOperationType(),
                         operation.getAttempt().getIntent().getOrderId(), attempts);
-            } else {
+            }
+            else
+            {
                 log.info("Provider still cannot establish operation {} (attempt {}); staying UNKNOWN",
                         operation.getId(), attempts);
             }
@@ -106,14 +117,17 @@ public class ReconciliationService {
         }
 
         ProviderResult result = answer.get();
-        if (result.approved()) {
+        if (result.approved())
+        {
             operation.resolve(OperationStatus.SUCCEEDED, result.providerReference(), null);
             operationRepository.save(operation);
             log.info("Reconciliation established operation {} ({}) as SUCCEEDED for order {}",
                     operation.getId(), operation.getOperationType(),
                     operation.getAttempt().getIntent().getOrderId());
             emitResolved(operation, true);
-        } else {
+        }
+        else
+        {
             operation.resolve(OperationStatus.FAILED, null, result.failureReason());
             operationRepository.save(operation);
             log.info("Reconciliation established operation {} ({}) as FAILED for order {}: {}",
@@ -128,20 +142,32 @@ public class ReconciliationService {
      * correlation id is the operation's order id: no inbound message caused this, so there is no
      * causation id to carry.
      */
-    private void emitResolved(PaymentOperationEntity operation, boolean succeeded) {
-        if (operation.getOperationType() == OperationType.CAPTURE) {
-            if (succeeded) {
+    private void emitResolved(PaymentOperationEntity operation, boolean succeeded)
+    {
+        if (operation.getOperationType() == OperationType.CAPTURE)
+        {
+            if (succeeded)
+            {
                 events.captured(operation, correlationIdFor(operation), null);
-            } else {
+            }
+            else
+            {
                 events.captureFailed(operation, correlationIdFor(operation), null);
             }
-        } else if (operation.getOperationType() == OperationType.AUTHORIZE) {
-            if (succeeded) {
+        }
+        else if (operation.getOperationType() == OperationType.AUTHORIZE)
+        {
+            if (succeeded)
+            {
                 events.authorized(operation, correlationIdFor(operation), null);
-            } else {
+            }
+            else
+            {
                 events.declined(operation, correlationIdFor(operation), null);
             }
-        } else if (operation.getOperationType() == OperationType.REFUND && succeeded) {
+        }
+        else if (operation.getOperationType() == OperationType.REFUND && succeeded)
+        {
             events.refunded(operation, correlationIdFor(operation), null);
         }
     }
@@ -152,7 +178,8 @@ public class ReconciliationService {
      * and it keeps the late event attached to the right order rather than to a fresh random id that
      * would join up with nothing.
      */
-    private java.util.UUID correlationIdFor(PaymentOperationEntity operation) {
+    private java.util.UUID correlationIdFor(PaymentOperationEntity operation)
+    {
         return operation.getAttempt().getIntent().getOrderId();
     }
 }

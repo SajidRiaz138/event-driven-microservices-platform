@@ -5,9 +5,11 @@ package com.sajidriaz.orderplatform.orderservice.web;
  * cannot express directly (e.g. unknown SKU / no server-side price available).
  * Maps to {@code 422 Unprocessable Entity} (REST-API-GUIDE §2).
  */
-public class OrderValidationException extends RuntimeException {
+public class OrderValidationException extends RuntimeException
+{
 
-    public OrderValidationException(String message) {
+    public OrderValidationException(String message)
+    {
         super(message);
     }
 }

@@ -27,22 +27,26 @@ import java.io.IOException;
  * bearer-token API, and RFC 6750 requires it on a 401.
  */
 @Component
-public class ProblemDetailAuthenticationEntryPoint implements AuthenticationEntryPoint {
+public class ProblemDetailAuthenticationEntryPoint implements AuthenticationEntryPoint
+{
 
     @Override
-    public void commence(HttpServletRequest request, HttpServletResponse response,
-                            AuthenticationException authenticationException) throws IOException {
+    public void commence(HttpServletRequest request,
+                         HttpServletResponse response,
+                         AuthenticationException authenticationException) throws IOException
+    {
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
         response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer realm=\"order-platform\"");
         response.setContentType(ProblemJson.CONTENT_TYPE);
         // The reason is deliberately not echoed: "signature mismatch" versus "expired" tells
         // an attacker which half of a forged token to fix. The detail is logged, not returned.
-        response.getWriter().write(ProblemJson.render(
-                HttpStatus.UNAUTHORIZED.value(),
-                "unauthenticated",
-                "Unauthorized",
-                "A valid credential is required.",
-                request.getRequestURI(),
-                CorrelationContext.currentCorrelationId()));
+        response.getWriter()
+                .write(ProblemJson.render(
+                        HttpStatus.UNAUTHORIZED.value(),
+                        "unauthenticated",
+                        "Unauthorized",
+                        "A valid credential is required.",
+                        request.getRequestURI(),
+                        CorrelationContext.currentCorrelationId()));
     }
 }

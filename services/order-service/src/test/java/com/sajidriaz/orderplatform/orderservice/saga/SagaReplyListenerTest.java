@@ -35,8 +35,9 @@ import static org.mockito.Mockito.when;
  * listener, "never retried, never dead-lettered" is asserted by showing that handling such
  * a reply throws nothing and acknowledges the offset.
  */
-@ExtendWith(MockitoExtension.class)
-class SagaReplyListenerTest {
+@ExtendWith (MockitoExtension.class)
+class SagaReplyListenerTest
+{
 
     @Mock
     private SagaOrchestrator sagaOrchestrator;
@@ -50,13 +51,15 @@ class SagaReplyListenerTest {
     private UUID orderId;
 
     @BeforeEach
-    void setUp() {
+    void setUp()
+    {
         listener = new SagaReplyListener(sagaOrchestrator, processedMessageRepository, envelopeCodec);
         orderId = UUID.randomUUID();
     }
 
     @Test
-    void businessRejection_isProcessedAndAcknowledged_notRetriedOrDeadLettered() {
+    void businessRejection_isProcessedAndAcknowledged_notRetriedOrDeadLettered()
+    {
         when(processedMessageRepository.existsById(any())).thenReturn(false);
         ConsumerRecord<String, byte[]> record = stockReservationFailedRecord();
 
@@ -71,7 +74,8 @@ class SagaReplyListenerTest {
     }
 
     @Test
-    void redeliveredMessage_isSkipped_andNoTransitionIsReapplied() {
+    void redeliveredMessage_isSkipped_andNoTransitionIsReapplied()
+    {
         when(processedMessageRepository.existsById(any())).thenReturn(true);
         ConsumerRecord<String, byte[]> record = stockReservationFailedRecord();
 
@@ -85,7 +89,8 @@ class SagaReplyListenerTest {
     }
 
     @Test
-    void unmappedTopic_isAcknowledgedWithoutDispatch() {
+    void unmappedTopic_isAcknowledgedWithoutDispatch()
+    {
         when(processedMessageRepository.existsById(any())).thenReturn(false);
         byte[] value = envelopeCodec.encodeEnvelope(MessageKind.EVENT, "events.payment.refunded",
                 UUID.randomUUID(), null, orderId, StockReservationFailed.newBuilder()
@@ -105,7 +110,8 @@ class SagaReplyListenerTest {
         verify(acknowledgment).acknowledge();
     }
 
-    private ConsumerRecord<String, byte[]> stockReservationFailedRecord() {
+    private ConsumerRecord<String, byte[]> stockReservationFailedRecord()
+    {
         StockReservationFailed payload = StockReservationFailed.newBuilder()
                 .setOrderId(orderId)
                 .setFailedSku("SKU-1001")

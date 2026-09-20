@@ -48,7 +48,8 @@ import java.util.UUID;
  * committed before the call, which is exactly what the PENDING status exists to support.
  */
 @Service
-public class PaymentService {
+public class PaymentService
+{
 
     private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
 
@@ -62,7 +63,8 @@ public class PaymentService {
                           PaymentAttemptRepository attemptRepository,
                           PaymentOperationRepository operationRepository,
                           PaymentProvider provider,
-                          PaymentEventPublisher events) {
+                          PaymentEventPublisher events)
+    {
         this.intentRepository = intentRepository;
         this.attemptRepository = attemptRepository;
         this.operationRepository = operationRepository;
@@ -72,14 +74,15 @@ public class PaymentService {
 
     /** What an AuthorizePayment command carries, after decoding. */
     public record AuthorizeCommand(UUID orderId, UUID customerId, UUID paymentIntentId,
-                                   UUID paymentAttemptId, Money amount, String paymentMethodToken) {
+            UUID paymentAttemptId, Money amount, String paymentMethodToken) {
     }
 
     /**
      * Authorize funds: place a hold. Replies {@code PaymentAuthorized} or {@code PaymentDeclined}.
      */
     @Transactional
-    public void authorize(AuthorizeCommand command, UUID correlationId, UUID causationId) {
+    public void authorize(AuthorizeCommand command, UUID correlationId, UUID causationId)
+    {
         PaymentIntentEntity intent = findOrCreateIntent(command);
         PaymentAttemptEntity attempt = findOrCreateAttempt(intent, command.paymentAttemptId(),
                 command.paymentMethodToken());
@@ -87,7 +90,8 @@ public class PaymentService {
         String idempotencyKey = authorizeKey(attempt.getId());
         Optional<PaymentOperationEntity> existing =
                 operationRepository.findByProviderIdempotencyKey(idempotencyKey);
-        if (existing.isPresent() && existing.get().getStatus().isResolved()) {
+        if (existing.isPresent() && existing.get().getStatus().isResolved())
+        {
             // Already answered. Re-emit the same reply: a repeated command usually means the
             // orchestrator never saw the first one.
             PaymentOperationEntity operation = existing.get();
@@ -101,21 +105,27 @@ public class PaymentService {
                 new PaymentOperationEntity(UUID.randomUUID(), attempt, OperationType.AUTHORIZE,
                         idempotencyKey, intent.getAmount())));
 
-        try {
+        try
+        {
             ProviderResult result = provider.authorize(new PaymentProvider.ProviderCall(
                     idempotencyKey, attempt.getPaymentMethodToken(), intent.getAmount()));
-            if (result.approved()) {
+            if (result.approved())
+            {
                 operation.resolve(OperationStatus.SUCCEEDED, result.providerReference(), null);
                 log.info("Authorized {} for order {} (operation {})",
                         intent.getAmount().minorUnits(), command.orderId(), operation.getId());
-            } else {
+            }
+            else
+            {
                 operation.resolve(OperationStatus.FAILED, null, result.failureReason());
                 log.info("Authorization declined for order {}: {}",
                         command.orderId(), result.failureReason());
             }
             operationRepository.save(operation);
             emitAuthorizeOutcome(operation, correlationId, causationId);
-        } catch (ProviderTimeoutException e) {
+        }
+        catch (ProviderTimeoutException e)
+        {
             // Even an authorization hold of unknown status must not be guessed at: a hold that
             // exists but is recorded as failed leaks the customer's available balance.
             operation.markUnknown(e.getProviderReference());
@@ -133,9 +143,11 @@ public class PaymentService {
      * intent/attempt ids per command, so those do not match the authorization that preceded this.
      */
     @Transactional
-    public void capture(UUID orderId, UUID correlationId, UUID causationId) {
+    public void capture(UUID orderId, UUID correlationId, UUID causationId)
+    {
         Optional<PaymentIntentEntity> maybeIntent = intentRepository.findByOrderId(orderId);
-        if (maybeIntent.isEmpty()) {
+        if (maybeIntent.isEmpty())
+        {
             log.error("CapturePayment for order {} but no payment intent exists; nothing was "
                     + "authorized here", orderId);
             return;
@@ -143,7 +155,8 @@ public class PaymentService {
         PaymentIntentEntity intent = maybeIntent.get();
 
         Optional<PaymentOperationEntity> authorization = latestSuccessfulAuthorization(intent);
-        if (authorization.isEmpty()) {
+        if (authorization.isEmpty())
+        {
             log.warn("CapturePayment for order {} with no established authorization; replying "
                     + "capture-failed", orderId);
             PaymentAttemptEntity attempt = latestAttempt(intent);
@@ -162,9 +175,11 @@ public class PaymentService {
         Optional<PaymentOperationEntity> existingCapture =
                 operationRepository.findByProviderIdempotencyKey(idempotencyKey);
 
-        if (existingCapture.isPresent()) {
+        if (existingCapture.isPresent())
+        {
             PaymentOperationEntity capture = existingCapture.get();
-            switch (capture.getStatus()) {
+            switch (capture.getStatus())
+            {
                 case SUCCEEDED -> {
                     // Capture-once: the money is already taken. Re-emit the pivot event instead of
                     // calling the provider again.
@@ -201,7 +216,7 @@ public class PaymentService {
 
     /** What a RefundPayment command carries, after decoding. */
     public record RefundCommand(UUID orderId, UUID paymentIntentId, UUID paymentOperationId,
-                                Money amount) {
+            Money amount) {
     }
 
     /**
@@ -209,16 +224,19 @@ public class PaymentService {
      * (ADR-0016 §2) — refunding against an UNKNOWN capture could return money that was never taken.
      */
     @Transactional
-    public void refund(RefundCommand command, UUID correlationId, UUID causationId) {
+    public void refund(RefundCommand command, UUID correlationId, UUID causationId)
+    {
         Optional<PaymentIntentEntity> maybeIntent = intentRepository.findByOrderId(command.orderId());
-        if (maybeIntent.isEmpty()) {
+        if (maybeIntent.isEmpty())
+        {
             log.error("RefundPayment for order {} but no payment intent exists", command.orderId());
             return;
         }
         PaymentIntentEntity intent = maybeIntent.get();
 
         Optional<PaymentOperationEntity> capture = successfulCapture(intent);
-        if (capture.isEmpty()) {
+        if (capture.isEmpty())
+        {
             // A business rejection, not a technical error: it must not throw, because throwing would
             // dead-letter a command that is simply not applicable.
             log.warn("Refusing to refund order {}: no capture is positively established as SUCCEEDED. "
@@ -230,7 +248,8 @@ public class PaymentService {
         String idempotencyKey = refundKey(capture.get().getId());
         Optional<PaymentOperationEntity> existingRefund =
                 operationRepository.findByProviderIdempotencyKey(idempotencyKey);
-        if (existingRefund.isPresent() && existingRefund.get().getStatus() == OperationStatus.SUCCEEDED) {
+        if (existingRefund.isPresent() && existingRefund.get().getStatus() == OperationStatus.SUCCEEDED)
+        {
             log.info("Refund for order {} already SUCCEEDED; re-emitting", command.orderId());
             events.refunded(existingRefund.get(), correlationId, causationId);
             return;
@@ -240,21 +259,27 @@ public class PaymentService {
                 new PaymentOperationEntity(UUID.randomUUID(), capture.get().getAttempt(),
                         OperationType.REFUND, idempotencyKey, capture.get().getAmount())));
 
-        try {
+        try
+        {
             ProviderResult result = provider.refund(new PaymentProvider.ProviderCall(
                     idempotencyKey, intent.getPaymentMethodToken(), refund.getAmount()));
-            if (result.approved()) {
+            if (result.approved())
+            {
                 refund.resolve(OperationStatus.SUCCEEDED, result.providerReference(), null);
                 operationRepository.save(refund);
                 log.info("Refunded order {} (operation {})", command.orderId(), refund.getId());
                 events.refunded(refund, correlationId, causationId);
-            } else {
+            }
+            else
+            {
                 refund.resolve(OperationStatus.FAILED, null, result.failureReason());
                 operationRepository.save(refund);
                 log.error("Refund for order {} was declined: {}. Requires operator attention.",
                         command.orderId(), result.failureReason());
             }
-        } catch (ProviderTimeoutException e) {
+        }
+        catch (ProviderTimeoutException e)
+        {
             refund.markUnknown(e.getProviderReference());
             operationRepository.save(refund);
             log.warn("Refund outcome UNKNOWN for order {} (operation {}); left to reconciliation",
@@ -263,8 +288,9 @@ public class PaymentService {
     }
 
     /** All operations for an order, for the operator/reconciliation view. */
-    @Transactional(readOnly = true)
-    public List<PaymentOperationEntity> operationsForOrder(UUID orderId) {
+    @Transactional (readOnly = true)
+    public List<PaymentOperationEntity> operationsForOrder(UUID orderId)
+    {
         return operationRepository.findByOrderId(orderId);
     }
 
@@ -272,39 +298,50 @@ public class PaymentService {
     // internals
     // ---------------------------------------------------------------------
 
-    private void performCapture(PaymentOperationEntity capture, PaymentAttemptEntity attempt,
-                                PaymentIntentEntity intent, UUID correlationId, UUID causationId) {
-        try {
+    private void performCapture(PaymentOperationEntity capture,
+                                PaymentAttemptEntity attempt,
+                                PaymentIntentEntity intent,
+                                UUID correlationId,
+                                UUID causationId)
+    {
+        try
+        {
             ProviderResult result = provider.capture(new PaymentProvider.ProviderCall(
                     capture.getProviderIdempotencyKey(), attempt.getPaymentMethodToken(),
                     intent.getAmount()));
-            if (result.approved()) {
+            if (result.approved())
+            {
                 capture.resolve(OperationStatus.SUCCEEDED, result.providerReference(), null);
                 operationRepository.save(capture);
                 log.info("Captured {} for order {} (operation {}) — saga pivot",
                         intent.getAmount().minorUnits(), intent.getOrderId(), capture.getId());
                 events.captured(capture, correlationId, causationId);
-            } else {
+            }
+            else
+            {
                 capture.resolve(OperationStatus.FAILED, null, result.failureReason());
                 operationRepository.save(capture);
                 log.info("Capture failed definitively for order {}: {}",
                         intent.getOrderId(), result.failureReason());
                 events.captureFailed(capture, correlationId, causationId);
             }
-        } catch (ProviderTimeoutException e) {
+        }
+        catch (ProviderTimeoutException e)
+        {
             // THE case this service exists for (ADR-0016 §2, scenario S-17). The funds may or may
             // not have moved. UNKNOWN is recorded and announced; only reconciliation may resolve it.
             capture.markUnknown(e.getProviderReference());
             operationRepository.save(capture);
             log.warn("Capture outcome UNKNOWN for order {} (operation {}, key {}): {}. "
-                            + "Awaiting reconciliation; no second capture will be attempted.",
+                    + "Awaiting reconciliation; no second capture will be attempted.",
                     intent.getOrderId(), capture.getId(), capture.getProviderIdempotencyKey(),
                     e.getMessage());
             events.captureUnknown(capture, correlationId, causationId);
         }
     }
 
-    private PaymentIntentEntity findOrCreateIntent(AuthorizeCommand command) {
+    private PaymentIntentEntity findOrCreateIntent(AuthorizeCommand command)
+    {
         return intentRepository.findByOrderId(command.orderId())
                 .orElseGet(() -> intentRepository.save(new PaymentIntentEntity(
                         // Adopt the orchestrator's intent id when creating, so both systems name the
@@ -313,40 +350,53 @@ public class PaymentService {
                         command.amount(), command.paymentMethodToken())));
     }
 
-    private PaymentAttemptEntity findOrCreateAttempt(PaymentIntentEntity intent, UUID attemptId,
-                                                     String paymentMethodToken) {
+    private PaymentAttemptEntity findOrCreateAttempt(PaymentIntentEntity intent,
+                                                     UUID attemptId,
+                                                     String paymentMethodToken)
+    {
         return attemptRepository.findById(attemptId)
                 .orElseGet(() -> attemptRepository.save(
                         new PaymentAttemptEntity(attemptId, intent, paymentMethodToken)));
     }
 
-    private void emitAuthorizeOutcome(PaymentOperationEntity operation, UUID correlationId,
-                                      UUID causationId) {
-        if (operation.getStatus() == OperationStatus.SUCCEEDED) {
+    private void emitAuthorizeOutcome(PaymentOperationEntity operation,
+                                      UUID correlationId,
+                                      UUID causationId)
+    {
+        if (operation.getStatus() == OperationStatus.SUCCEEDED)
+        {
             events.authorized(operation, correlationId, causationId);
-        } else if (operation.getStatus() == OperationStatus.FAILED) {
+        }
+        else if (operation.getStatus() == OperationStatus.FAILED)
+        {
             events.declined(operation, correlationId, causationId);
         }
     }
 
-    private Optional<PaymentOperationEntity> latestSuccessfulAuthorization(PaymentIntentEntity intent) {
-        return attemptRepository.findByIntentIdOrderByCreatedAtAsc(intent.getId()).stream()
+    private Optional<PaymentOperationEntity> latestSuccessfulAuthorization(PaymentIntentEntity intent)
+    {
+        return attemptRepository.findByIntentIdOrderByCreatedAtAsc(intent.getId())
+                .stream()
                 .flatMap(attempt -> operationRepository.findByAttemptTypeAndStatus(
                         attempt.getId(), OperationType.AUTHORIZE, OperationStatus.SUCCEEDED).stream())
                 .max(Comparator.comparing(PaymentOperationEntity::getCreatedAt));
     }
 
-    private Optional<PaymentOperationEntity> successfulCapture(PaymentIntentEntity intent) {
-        return attemptRepository.findByIntentIdOrderByCreatedAtAsc(intent.getId()).stream()
+    private Optional<PaymentOperationEntity> successfulCapture(PaymentIntentEntity intent)
+    {
+        return attemptRepository.findByIntentIdOrderByCreatedAtAsc(intent.getId())
+                .stream()
                 .flatMap(attempt -> operationRepository.findByAttemptTypeAndStatus(
                         attempt.getId(), OperationType.CAPTURE, OperationStatus.SUCCEEDED).stream())
                 .max(Comparator.comparing(PaymentOperationEntity::getCreatedAt));
     }
 
-    private PaymentAttemptEntity latestAttempt(PaymentIntentEntity intent) {
+    private PaymentAttemptEntity latestAttempt(PaymentIntentEntity intent)
+    {
         List<PaymentAttemptEntity> attempts =
                 attemptRepository.findByIntentIdOrderByCreatedAtAsc(intent.getId());
-        if (attempts.isEmpty()) {
+        if (attempts.isEmpty())
+        {
             return attemptRepository.save(new PaymentAttemptEntity(UUID.randomUUID(), intent,
                     intent.getPaymentMethodToken()));
         }
@@ -356,15 +406,18 @@ public class PaymentService {
     // Idempotency keys are DERIVED, not random: the same logical operation must produce the same key
     // on every retry, or the provider could not collapse duplicates and capture-once would rely on
     // our bookkeeping alone.
-    private String authorizeKey(UUID attemptId) {
+    private String authorizeKey(UUID attemptId)
+    {
         return "auth-" + attemptId;
     }
 
-    private String captureKey(UUID attemptId) {
+    private String captureKey(UUID attemptId)
+    {
         return "cap-" + attemptId;
     }
 
-    private String refundKey(UUID captureOperationId) {
+    private String refundKey(UUID captureOperationId)
+    {
         return "ref-" + captureOperationId;
     }
 }

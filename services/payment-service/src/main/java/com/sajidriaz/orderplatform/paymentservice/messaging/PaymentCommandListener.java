@@ -34,7 +34,8 @@ import java.util.function.Consumer;
  * re-applying a payment command is how systems charge twice.
  */
 @Component
-public class PaymentCommandListener {
+public class PaymentCommandListener
+{
 
     private static final Logger log = LoggerFactory.getLogger(PaymentCommandListener.class);
 
@@ -46,18 +47,20 @@ public class PaymentCommandListener {
 
     public PaymentCommandListener(PaymentService paymentService,
                                   ProcessedMessageRepository processedMessageRepository,
-                                  EnvelopeCodec envelopeCodec) {
+                                  EnvelopeCodec envelopeCodec)
+    {
         this.paymentService = paymentService;
         this.processedMessageRepository = processedMessageRepository;
         this.envelopeCodec = envelopeCodec;
     }
 
-    @KafkaListener(topics = {
-            PlatformTopics.COMMANDS_PAYMENT_AUTHORIZE,
-            PlatformTopics.COMMANDS_PAYMENT_CAPTURE,
-            PlatformTopics.COMMANDS_PAYMENT_REFUND
+    @KafkaListener (topics = {
+                               PlatformTopics.COMMANDS_PAYMENT_AUTHORIZE,
+                               PlatformTopics.COMMANDS_PAYMENT_CAPTURE,
+                               PlatformTopics.COMMANDS_PAYMENT_REFUND
     }, groupId = CONSUMER_GROUP)
-    public void onCommand(ConsumerRecord<String, byte[]> record, Acknowledgment ack) {
+    public void onCommand(ConsumerRecord<String, byte[]> record, Acknowledgment ack)
+    {
         Envelope envelope = envelopeCodec.decodeEnvelope(record.value());
         // Adopt the sender's context so logs join up and events produced here carry the same
         // traceparent (ADR-0013). Cleared in the finally: a virtual thread must never be left
@@ -66,21 +69,26 @@ public class PaymentCommandListener {
         TraceparentContext.set(envelope.getTraceparent());
         CorrelationContext.setTraceId(TraceparentContext.traceIdOf(envelope.getTraceparent()));
         CorrelationContext.setTenant(envelope.getTenantId());
-        try {
+        try
+        {
             applyIfNotProcessed(envelope, e -> dispatch(record.topic(), e));
             ack.acknowledge();
-        } finally {
+        }
+        finally
+        {
             TraceparentContext.clear();
             CorrelationContext.clear();
         }
     }
 
-    private void dispatch(String topic, Envelope envelope) {
+    private void dispatch(String topic, Envelope envelope)
+    {
         UUID orderId = orderIdOf(envelope);
         UUID causationId = envelope.getMessageId();
         UUID correlationId = envelope.getCorrelationId();
 
-        if (PlatformTopics.COMMANDS_PAYMENT_AUTHORIZE.equals(topic)) {
+        if (PlatformTopics.COMMANDS_PAYMENT_AUTHORIZE.equals(topic))
+        {
             AuthorizePayment command = envelopeCodec.decodePayload(envelope, AuthorizePayment.class);
             paymentService.authorize(new PaymentService.AuthorizeCommand(
                     orderId,
@@ -89,19 +97,25 @@ public class PaymentCommandListener {
                     command.getPaymentAttemptId(),
                     money(command.getAmount()),
                     command.getPaymentMethodToken()), correlationId, causationId);
-        } else if (PlatformTopics.COMMANDS_PAYMENT_CAPTURE.equals(topic)) {
+        }
+        else if (PlatformTopics.COMMANDS_PAYMENT_CAPTURE.equals(topic))
+        {
             // The command's intent/attempt ids are deliberately not used to find the authorization:
             // the orchestrator mints fresh ones per command, so they would match nothing. The order
             // id is the identifier that holds across the flow.
             paymentService.capture(orderId, correlationId, causationId);
-        } else if (PlatformTopics.COMMANDS_PAYMENT_REFUND.equals(topic)) {
+        }
+        else if (PlatformTopics.COMMANDS_PAYMENT_REFUND.equals(topic))
+        {
             RefundPayment command = envelopeCodec.decodePayload(envelope, RefundPayment.class);
             paymentService.refund(new PaymentService.RefundCommand(
                     orderId,
                     command.getPaymentIntentId(),
                     command.getPaymentOperationId(),
                     money(command.getAmount())), correlationId, causationId);
-        } else {
+        }
+        else
+        {
             log.warn("No handler mapped for topic {}", topic);
         }
     }
@@ -113,10 +127,12 @@ public class PaymentCommandListener {
      * recorded as processed, and the redelivery would charge again.
      */
     @Transactional
-    void applyIfNotProcessed(Envelope envelope, Consumer<Envelope> action) {
+    void applyIfNotProcessed(Envelope envelope, Consumer<Envelope> action)
+    {
         UUID messageId = envelope.getMessageId();
         var key = new ProcessedMessageEntity.Key(messageId, CONSUMER_GROUP);
-        if (processedMessageRepository.existsById(key)) {
+        if (processedMessageRepository.existsById(key))
+        {
             log.info("Skipping already-processed message {} (type={})", messageId, envelope.getType());
             return;
         }
@@ -124,7 +140,8 @@ public class PaymentCommandListener {
         processedMessageRepository.save(new ProcessedMessageEntity(messageId, CONSUMER_GROUP));
     }
 
-    private Money money(com.sajidriaz.orderplatform.common.Money wire) {
+    private Money money(com.sajidriaz.orderplatform.common.Money wire)
+    {
         return Money.of(wire.getMinorUnits(), wire.getCurrency());
     }
 
@@ -133,7 +150,8 @@ public class PaymentCommandListener {
      * {@link IllegalArgumentException}, classified as permanent by the error handler: no amount of
      * retrying will make it parse, so it goes straight to the DLQ.
      */
-    private UUID orderIdOf(Envelope envelope) {
+    private UUID orderIdOf(Envelope envelope)
+    {
         return UUID.fromString(envelope.getAggregateId());
     }
 }

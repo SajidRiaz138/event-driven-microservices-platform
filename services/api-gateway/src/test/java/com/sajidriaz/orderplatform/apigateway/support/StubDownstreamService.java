@@ -25,7 +25,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * whichever thread starts it, and a non-daemon one keeps the test JVM alive after the suite ends
  * (which Failsafe reports as having to kill the fork 30 seconds after exit).
  */
-public final class StubDownstreamService {
+public final class StubDownstreamService
+{
 
     private final HttpServer server;
     private final AtomicReference<ReceivedRequest> lastRequest = new AtomicReference<>();
@@ -33,41 +34,53 @@ public final class StubDownstreamService {
     private volatile int responseStatus = 202;
     private volatile String responseBody = "{\"status\":\"PENDING\"}";
 
-    private StubDownstreamService(HttpServer server) {
+    private StubDownstreamService(HttpServer server)
+    {
         this.server = server;
     }
 
-    public static StubDownstreamService start() {
+    public static StubDownstreamService start()
+    {
         AtomicReference<HttpServer> started = new AtomicReference<>();
         AtomicReference<RuntimeException> failure = new AtomicReference<>();
-        Thread starter = new Thread(() -> {
-            try {
+        Thread starter = new Thread(() ->
+        {
+            try
+            {
                 HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-                server.setExecutor(Executors.newCachedThreadPool(runnable -> {
+                server.setExecutor(Executors.newCachedThreadPool(runnable ->
+                {
                     Thread worker = new Thread(runnable, "stub-downstream");
                     worker.setDaemon(true);
                     return worker;
                 }));
                 server.start();
                 started.set(server);
-            } catch (IOException e) {
+            }
+            catch (IOException e)
+            {
                 failure.set(new IllegalStateException("Could not start the stub downstream", e));
             }
         }, "stub-downstream-starter");
         starter.setDaemon(true);
         starter.start();
-        try {
+        try
+        {
             starter.join();
-        } catch (InterruptedException e) {
+        }
+        catch (InterruptedException e)
+        {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Interrupted while starting the stub downstream", e);
         }
-        if (failure.get() != null) {
+        if (failure.get() != null)
+        {
             throw failure.get();
         }
 
         StubDownstreamService stub = new StubDownstreamService(started.get());
-        started.get().createContext("/", exchange -> {
+        started.get().createContext("/", exchange ->
+        {
             byte[] body = exchange.getRequestBody().readAllBytes();
             stub.lastRequest.set(new ReceivedRequest(
                     exchange.getRequestMethod(),
@@ -79,31 +92,37 @@ public final class StubDownstreamService {
             exchange.getResponseHeaders().add("Content-Type", "application/json");
             exchange.getResponseHeaders().add("X-Downstream-Marker", "order-service-stub");
             exchange.sendResponseHeaders(stub.responseStatus, responseBytes.length);
-            try (OutputStream responseBody = exchange.getResponseBody()) {
+            try (OutputStream responseBody = exchange.getResponseBody())
+            {
                 responseBody.write(responseBytes);
             }
         });
         return stub;
     }
 
-    public String baseUrl() {
+    public String baseUrl()
+    {
         return "http://127.0.0.1:" + server.getAddress().getPort();
     }
 
-    public ReceivedRequest lastRequest() {
+    public ReceivedRequest lastRequest()
+    {
         return lastRequest.get();
     }
 
-    public int requestCount() {
+    public int requestCount()
+    {
         return requestCount.get();
     }
 
-    public void reset() {
+    public void reset()
+    {
         lastRequest.set(null);
         requestCount.set(0);
     }
 
-    public void respondWith(int status, String body) {
+    public void respondWith(int status, String body)
+    {
         this.responseStatus = status;
         this.responseBody = body;
     }
@@ -117,8 +136,10 @@ public final class StubDownstreamService {
     public record ReceivedRequest(String method, String uri, Map<String, List<String>> headers, String body) {
 
         /** First value of {@code name}, or {@code null} — header names are case-insensitive. */
-        public String header(String name) {
-            return headers.entrySet().stream()
+        public String header(String name)
+        {
+            return headers.entrySet()
+                    .stream()
                     .filter(entry -> entry.getKey().equalsIgnoreCase(name))
                     .map(entry -> entry.getValue().isEmpty() ? null : entry.getValue().get(0))
                     .findFirst()

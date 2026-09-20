@@ -21,13 +21,13 @@ import java.util.List;
  *                           stalled downstream surfaces as a 504 rather than a hung request
  * @param audience           audience this gateway requires in the {@code aud} claim
  */
-@ConfigurationProperties(prefix = "order-platform.gateway")
+@ConfigurationProperties (prefix = "order-platform.gateway")
 public record GatewayProperties(
         @DefaultValue List<Route> routes,
         @DefaultValue RateLimit rateLimit,
-        @DefaultValue("2s") Duration connectTimeout,
-        @DefaultValue("10s") Duration readTimeout,
-        @DefaultValue("order-platform") String audience) {
+        @DefaultValue ("2s") Duration connectTimeout,
+        @DefaultValue ("10s") Duration readTimeout,
+        @DefaultValue ("order-platform") String audience) {
 
     /**
      * A single route.
@@ -45,7 +45,7 @@ public record GatewayProperties(
             String id,
             String pathPrefix,
             String uri,
-            @DefaultValue("false") boolean stripPrefix) {
+            @DefaultValue ("false") boolean stripPrefix) {
     }
 
     /**
@@ -56,8 +56,8 @@ public record GatewayProperties(
      * @param refillPerSecond sustained rate at which the bucket refills
      */
     public record RateLimit(
-            @DefaultValue("true") boolean enabled,
-            @DefaultValue("60") int capacity,
-            @DefaultValue("20") double refillPerSecond) {
+            @DefaultValue ("true") boolean enabled,
+            @DefaultValue ("60") int capacity,
+            @DefaultValue ("20") double refillPerSecond) {
     }
 }
