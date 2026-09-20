@@ -62,12 +62,11 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-            <!-- Kafka dependencies for event-driven services -->
-            <dependency>
-                <groupId>org.springframework.kafka</groupId>
-                <artifactId>spring-kafka</artifactId>
-                <version>3.2.4</version>
-            </dependency>
+            <!-- Kafka: spring-kafka is version-managed by the Spring Boot 4.1.x BOM
+                 (4.1.1, built for Spring Framework 7). Do NOT pin it here — an older pin
+                 (e.g. 3.2.4, built for Spring 6) silently breaks @KafkaListener activation
+                 on Boot 4. Services depend on spring-boot-starter-kafka to get the Kafka
+                 auto-configuration. -->
             <!--
               NOTE: no io.confluent:kafka-avro-serializer here. Services serialize the
               Envelope (and Avro payloads inside it) to bytes in-process with the plain

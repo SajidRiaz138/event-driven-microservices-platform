@@ -59,23 +59,6 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-kafka</artifactId>
         </dependency>
-        <!--
-          Version pinned explicitly to align with the Spring Boot 4.1.1 BOM. The parent pom's
-          dependencyManagement pins spring-kafka to 3.2.4, which was built against Spring
-          Framework 6.1 while this platform runs Spring Framework 7.x — and the test classpath
-          resolves spring-kafka-test 4.1.1 from the Boot BOM regardless, so without this
-          override main and test code run split major versions of the same library. An explicit
-          version on a module's own dependency declaration takes precedence over inherited
-          dependencyManagement, which keeps the fix local rather than editing the shared parent.
-          TODO: remove this override (here, in inventory-service, and in order-service) once the
-          parent pom's spring-kafka 3.2.4 pin is dropped in favour of the Boot BOM's managed
-          version — a platform-wide change, deliberately out of scope for this module.
-        -->
-        <dependency>
-            <groupId>org.springframework.kafka</groupId>
-            <artifactId>spring-kafka</artifactId>
-            <version>4.1.1</version>
-        </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-database-postgresql</artifactId>
