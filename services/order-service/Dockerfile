@@ -16,10 +16,13 @@ WORKDIR /app
 COPY pom.xml mvnw mvnw.cmd ./
 COPY .mvn .mvn
 
-# Copy only the modules order-service needs to build (itself + its two shared deps).
+# Copy the shared modules order-service depends on, plus the whole services tree: the root
+# POM declares every Phase 1 service as a <module>, and Maven refuses to read a reactor
+# whose declared modules are missing from disk. The -pl/-am below still restricts the build
+# to order-service and its two shared dependencies.
 COPY shared/avro-schemas shared/avro-schemas
 COPY shared/common-lib shared/common-lib
-COPY services/order-service services/order-service
+COPY services services
 
 RUN chmod +x mvnw && \
     ./mvnw -B -q clean package -DskipTests -pl services/order-service,shared/avro-schemas,shared/common-lib -am

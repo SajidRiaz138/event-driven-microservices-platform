@@ -18,7 +18,9 @@ COPY .mvn .mvn
 # Copy only the modules api-gateway needs to build (itself + its shared deps).
 COPY shared/avro-schemas shared/avro-schemas
 COPY shared/common-lib shared/common-lib
-COPY services/api-gateway services/api-gateway
+# The whole services tree: the root POM declares every Phase 1 service as a <module> and
+# Maven refuses to read a reactor with missing modules. -pl/-am still limits what is built.
+COPY services services
 
 RUN chmod +x mvnw && \
     ./mvnw -B -q clean package -DskipTests -pl services/api-gateway,shared/avro-schemas,shared/common-lib -am

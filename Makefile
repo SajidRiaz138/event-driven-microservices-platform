@@ -30,8 +30,11 @@ integration-test: ## Run integration tests only (Testcontainers) — Failsafe *I
 	./mvnw -q failsafe:integration-test failsafe:verify
 
 .PHONY: up
-up: ## Start the local stack (Postgres, Kafka, Schema Registry, Redis, observability) + services
-	$(COMPOSE) -f $(COMPOSE_FILE) up -d --build
+up: ## Start the whole local stack (Postgres, Kafka, Redis, Keycloak + all 4 services) and wait until healthy
+	$(COMPOSE) -f $(COMPOSE_FILE) up -d --build --wait
+	@echo
+	@echo "Stack is up. Gateway: http://localhost:8090  Keycloak: http://localhost:8180"
+	@echo "Next: make demo   (happy path + payment-decline compensation)"
 
 .PHONY: down
 down: ## Stop the local stack and remove volumes

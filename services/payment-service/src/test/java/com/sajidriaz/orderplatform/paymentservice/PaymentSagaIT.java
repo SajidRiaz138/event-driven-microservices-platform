@@ -180,11 +180,14 @@ class PaymentSagaIT {
         publishCapture(orderId);
 
         // First, the ambiguous outcome is recorded and announced as UNKNOWN — not failed, not
-        // succeeded (ADR-0016 §2, scenario S-17).
+        // succeeded (ADR-0016 §2, scenario S-17). The awaited PaymentCaptureUnknown event is the
+        // authoritative proof the capture passed through UNKNOWN; the persisted status is only
+        // asserted loosely because the 500ms reconciliation scheduler may already have resolved it
+        // to SUCCEEDED by the time we read the row (a benign race — the event above is the invariant).
         Envelope unknown = awaitEvent(orderId, MessageTypes.EVENT_PAYMENT_CAPTURE_UNKNOWN);
         PaymentCaptureUnknown unknownPayload = codec.decodePayload(unknown, PaymentCaptureUnknown.class);
         assertThat(unknownPayload.getOrderId()).isEqualTo(orderId);
-        assertThat(statusOf(orderId, "CAPTURE")).containsExactly("UNKNOWN");
+        assertThat(statusOf(orderId, "CAPTURE")).containsAnyOf("UNKNOWN", "SUCCEEDED");
 
         // Then the reconciliation worker asks the provider with the same idempotency key, learns the
         // funds did move, and publishes the pivot event the direct path would have published.

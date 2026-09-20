@@ -1,0 +1,15 @@
+# Build context trimming for the four service images (deploy/local/compose.yaml builds
+# each of them with the REPO ROOT as context, because the Dockerfiles need the parent POM
+# and the shared/* modules). Without this file every build ships target/, .git and the
+# docs tree to the daemon on every rebuild.
+.git
+.github
+.gitignore
+**/target
+docs
+deploy/k8s
+deploy/helm
+.idea
+*.iml
+.env
+*.log
