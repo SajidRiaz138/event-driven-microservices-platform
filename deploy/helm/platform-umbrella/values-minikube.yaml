@@ -4,7 +4,12 @@
 #   helm install platform deploy/helm/platform-umbrella \
 #     -n edmp --create-namespace -f deploy/helm/platform-umbrella/values-minikube.yaml \
 #     --set-file postgres.initSql=deploy/local/postgres-init/01-extensions.sql \
+#     --set-file postgres.initRolesSh=deploy/local/postgres-init/02-service-roles.sh \
 #     --set-file keycloak.realmJson=services/auth-service/realm/order-platform-realm.json
+#
+# All three --set-file flags are required; the postgres-init ConfigMap marks the two Postgres
+# ones `required`, so leaving either out fails the render rather than producing a database
+# without the per-service roles. `make k8s-install` passes all three.
 #
 # Two changes from the defaults, and nothing else:
 #
@@ -18,9 +23,9 @@
 #    limits and shrinking the requests is what makes eight components fit on a 4 GiB node
 #    without changing how any of them behaves.
 #
-# Measured on this node: 8 pods Ready with ~1.6 GiB of memory requests and 850m of CPU
-# requests in total. See docs/deployment/kubernetes-minikube.md for the numbers and for
-# the minimum `minikube start` flags they imply.
+# Measured on this node: 8 pods Ready with 1792Mi of memory requests and 850m of CPU requests
+# in total, against ~3.2 GiB actually in use. See docs/deployment/kubernetes-minikube.md for the
+# numbers and for the minimum `minikube start` flags they imply.
 
 postgres:
   image:
