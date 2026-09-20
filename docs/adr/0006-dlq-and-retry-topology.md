@@ -33,7 +33,8 @@ Adopt a **non-blocking retry topology** with explicit exception classification:
   classified permanent, lands here with failure metadata (exception, stack, attempt
   count, original headers).
 - **Operational contract:** DLQ depth is **monitored and alerted**; a documented
-  **replay runbook** (`docs/runbooks/`) describes triage and re-injection after a fix.
+  **replay runbook** (planned deliverable, see ROADMAP) describes triage and re-injection
+  after a fix.
 
 ## Consequences
 

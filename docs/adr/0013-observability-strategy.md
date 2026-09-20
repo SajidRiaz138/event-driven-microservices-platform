@@ -72,7 +72,8 @@ standardised across every service via `common-lib` so no service reinvents it.
   resource thresholds — alert on symptoms users feel, not on every CPU spike.
 - Phase 1 alert set: order-accept latency SLO burn, saga compensation-rate spike,
   **DLQ depth > 0 with rate**, outbox lag growing (relay stalled), edge 5xx rate,
-  readiness flaps. Each alert links to a **runbook** in `docs/runbooks/`.
+  readiness flaps. Each alert links to a **runbook** (operational runbooks are a planned
+  deliverable alongside the observability stack — see ROADMAP).
 
 ### 6. Correlation across the pillars (the point)
 
